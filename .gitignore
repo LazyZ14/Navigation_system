@@ -1,0 +1,19 @@
+# Reproducible map inputs and generated routing/rendering data
+data/raw/*
+!data/raw/.gitkeep
+data/osrm/*
+data/tiles/*
+data/metadata/*
+!data/metadata/.gitkeep
+*.osrm*
+*.mbtiles
+
+# Local tooling and generated output
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+*.log
+.DS_Store
+.superpowers/
