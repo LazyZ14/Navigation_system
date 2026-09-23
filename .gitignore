@@ -3,6 +3,8 @@ data/raw/*
 !data/raw/.gitkeep
 data/osrm/*
 data/tiles/*
+frontend/public/generated/*
+!frontend/public/generated/.gitkeep
 data/metadata/*
 !data/metadata/.gitkeep
 *.osrm*

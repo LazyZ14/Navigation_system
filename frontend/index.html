@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>离线导航演示</title>
+  </head>
+  <body>
+    <main id="app">
+      <section id="map" aria-label="导航地图"></section>
+      <section id="controls">
+        <p id="selection-status">点击地图选择起点</p>
+        <button id="plan-route" type="button" disabled>规划路线</button>
+        <p id="route-summary" aria-live="polite"></p>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
