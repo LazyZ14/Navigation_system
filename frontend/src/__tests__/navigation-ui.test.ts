@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { navigationLabel } from "../navigation-ui";
+import { navigationErrorLabel, navigationLabel } from "../navigation-ui";
 
 describe("navigationLabel", () => {
   it("shows a visible warning when the latest fix was not road matched", () => {
@@ -14,5 +14,9 @@ describe("navigationLabel", () => {
         off_route: false,
       }),
     ).toContain("未匹配");
+  });
+
+  it("tells the operator when the local routing service is unavailable", () => {
+    expect(navigationErrorLabel(new Error("无法创建导航会话"))).toContain("本地路由服务");
   });
 });

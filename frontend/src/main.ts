@@ -4,7 +4,7 @@ import maplibregl from "maplibre-gl";
 
 import { createNavigationSession, requestReplayNext } from "./api";
 import { MapController } from "./map-controller";
-import { navigationLabel, selectionLabel } from "./navigation-ui";
+import { navigationErrorLabel, navigationLabel, selectionLabel } from "./navigation-ui";
 import type { Coordinate } from "./types";
 
 const map = new maplibregl.Map({
@@ -69,11 +69,15 @@ map.on("load", async () => {
   });
   button.addEventListener("click", async () => {
     if (origin === null || destination === null) return;
-    const session = await createNavigationSession(origin, destination, "normal-route");
-    sessionId = session.session_id;
-    controller.renderRoute(session.route);
-    summary.textContent = navigationLabel(session.state);
-    replayButton.disabled = false;
+    try {
+      const session = await createNavigationSession(origin, destination, "normal-route");
+      sessionId = session.session_id;
+      controller.renderRoute(session.route);
+      summary.textContent = navigationLabel(session.state);
+      replayButton.disabled = false;
+    } catch (error) {
+      summary.textContent = navigationErrorLabel(error instanceof Error ? error : new Error("unknown"));
+    }
   });
   replayButton.addEventListener("click", () => {
     if (sessionId === null || replayTimer !== null) return;

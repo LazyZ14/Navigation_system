@@ -17,3 +17,7 @@ export function navigationLabel(state: NavigationState): string {
   const distance = state.remaining_distance_m === null ? "" : `，剩余 ${(state.remaining_distance_m / 1000).toFixed(1)} km`;
   return `${maneuver}${distance}`;
 }
+
+export function navigationErrorLabel(_: Error): string {
+  return "无法规划路线：请确认本地路由服务、FastAPI 与 Vite 均已启动。";
+}
