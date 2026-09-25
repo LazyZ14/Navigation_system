@@ -80,6 +80,7 @@ map.on("load", async () => {
     replayTimer = window.setInterval(async () => {
       if (sessionId === null) return;
       const session = await requestReplayNext(sessionId);
+      controller.renderRoute(session.route);
       controller.updateNavigation(session.state);
       summary.textContent = navigationLabel(session.state);
       if (session.state.status === "arrived") {

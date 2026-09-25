@@ -6,6 +6,7 @@ from uuid import uuid4
 from app.models import Coordinate, LocationFix, NavigationSession, NavigationState, RouteResponse
 from app.services.osrm import MatchedRoad
 from app.services.replay import ReplayController
+from app.services.geometry import distance_to_polyline_m
 
 
 class NearestRoadClient(Protocol):
@@ -13,9 +14,11 @@ class NearestRoadClient(Protocol):
 
 
 class NavigationService:
-    def __init__(self, client: NearestRoadClient, route: RouteResponse | None = None):
+    def __init__(self, client: NearestRoadClient, route: RouteResponse | None = None, destination: Coordinate | None = None):
         self._client = client
         self._route = route
+        self._destination = destination
+        self._deviation_count = 0
         self._state = NavigationState(
             status="ready",
             next_maneuver=route.maneuvers[0] if route and route.maneuvers else None,
@@ -26,17 +29,31 @@ class NavigationService:
     def state(self) -> NavigationState:
         return self._state
 
+    @property
+    def route(self) -> RouteResponse | None:
+        return self._route
+
     async def apply_fix(self, fix: LocationFix) -> NavigationState:
         matched = await self._client.nearest(fix)
         if matched is None or matched.distance_m > 50:
             self._state = NavigationState(status="unmatched", raw_location=fix)
             return self._state
+        off_route = False
+        if self._route and self._destination and distance_to_polyline_m(matched.location, self._route.geometry) > 30:
+            self._deviation_count += 1
+            if self._deviation_count >= 3 and hasattr(self._client, "route"):
+                self._route = await self._client.route(matched.location, self._destination)  # type: ignore[attr-defined]
+                self._deviation_count = 0
+                off_route = True
+        else:
+            self._deviation_count = 0
         self._state = NavigationState(
             status="navigating",
             raw_location=fix,
             matched_location=matched.location,
             next_maneuver=self._route.maneuvers[0] if self._route and self._route.maneuvers else None,
             remaining_distance_m=self._route.distance_m if self._route else None,
+            off_route=off_route,
         )
         return self._state
 
@@ -59,7 +76,7 @@ class NavigationSessionStore:
     ) -> NavigationSession:
         route = await self._client.route(origin, destination)
         session_id = str(uuid4())
-        service = NavigationService(self._client, route)
+        service = NavigationService(self._client, route, destination=destination)
         self._services[session_id] = service
         self._routes[session_id] = route
         if track_id is not None:
@@ -84,6 +101,8 @@ class NavigationSessionStore:
         if service is None or route is None:
             return None
         state = await service.apply_fix(fix)
+        if service.route is not None:
+            self._routes[session_id] = service.route
         for subscriber in self._subscribers.get(session_id, set()):
             subscriber.put_nowait(state)
         return NavigationSession(session_id=session_id, route=route, state=state)
