@@ -8,6 +8,12 @@ from app.models import Coordinate, Maneuver, RouteResponse
 class RouteNotFound(Exception):
     """OSRM returned no drivable route for a valid request."""
 
+class MatchedRoad:
+    def __init__(self, location: Coordinate, distance_m: float):
+        self.location = location
+        self.distance_m = distance_m
+
+
 
 def create_local_http_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=5.0, trust_env=False)
@@ -52,6 +58,28 @@ class OsrmClient:
             distance_m=route["distance"],
             duration_s=route["duration"],
             maneuvers=maneuvers,
+        )
+
+    async def nearest(self, location: Coordinate) -> MatchedRoad | None:
+        client = self._http_client or create_local_http_client()
+        close_client = self._http_client is None
+        try:
+            response = await client.get(
+                f"{self._base_url}/nearest/v1/driving/{location.lon:.6f},{location.lat:.6f}"
+            )
+            response.raise_for_status()
+            payload = response.json()
+        finally:
+            if close_client:
+                await client.aclose()
+        waypoints = payload.get("waypoints", [])
+        if payload.get("code") != "Ok" or not waypoints:
+            return None
+        waypoint = waypoints[0]
+        lon, lat = waypoint["location"]
+        return MatchedRoad(
+            location=Coordinate(lat=float(lat), lon=float(lon)),
+            distance_m=float(waypoint["distance"]),
         )
 
     @staticmethod
