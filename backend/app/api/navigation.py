@@ -4,7 +4,8 @@ from functools import lru_cache
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
 from app.config import get_settings
-from app.models import LocationFix, NavigationSession, RouteRequest
+from app.models import LocationFix, NavigationSession, NavigationSessionRequest
+from app.services.replay import load_track
 from app.services.navigation import NavigationSessionStore
 from app.services.osrm import OsrmClient, RouteNotFound
 
@@ -14,16 +15,20 @@ websocket_router = APIRouter(tags=["navigation"])
 
 @lru_cache
 def get_navigation_store() -> NavigationSessionStore:
-    return NavigationSessionStore(OsrmClient(get_settings().osrm_base_url))
+    track_dir = __import__("pathlib").Path(__file__).parents[3] / "data" / "tracks"
+    return NavigationSessionStore(
+        OsrmClient(get_settings().osrm_base_url),
+        tracks={"normal-route": load_track(track_dir / "normal-route.json")},
+    )
 
 
 @router.post("/sessions", response_model=NavigationSession, status_code=201)
 async def create_navigation_session(
-    request: RouteRequest,
+    request: NavigationSessionRequest,
     store: NavigationSessionStore = Depends(get_navigation_store),
 ) -> NavigationSession:
     try:
-        return await store.create(request.origin, request.destination)
+        return await store.create(request.origin, request.destination, request.track_id)
     except RouteNotFound as error:
         raise HTTPException(status_code=404, detail={"code": "route_not_found"}) from error
     except (httpx.HTTPError, OSError) as error:
@@ -54,6 +59,17 @@ async def apply_navigation_fix(
     session = await store.apply_fix(session_id, fix)
     if session is None:
         raise HTTPException(status_code=404, detail={"code": "navigation_session_not_found"})
+    return session
+
+
+@router.post("/{session_id}/replay/next", response_model=NavigationSession)
+async def replay_next(
+    session_id: str,
+    store: NavigationSessionStore = Depends(get_navigation_store),
+) -> NavigationSession:
+    session = await store.replay_next(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail={"code": "navigation_session_or_replay_not_found"})
     return session
 
 

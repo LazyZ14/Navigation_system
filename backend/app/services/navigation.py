@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from app.models import Coordinate, LocationFix, NavigationSession, NavigationState, RouteResponse
 from app.services.osrm import MatchedRoad
+from app.services.replay import ReplayController
 
 
 class NearestRoadClient(Protocol):
@@ -45,18 +46,29 @@ class NavigationRouteClient(NearestRoadClient, Protocol):
 
 
 class NavigationSessionStore:
-    def __init__(self, client: NavigationRouteClient):
+    def __init__(self, client: NavigationRouteClient, tracks: dict[str, list[LocationFix]] | None = None):
         self._client = client
         self._services: dict[str, NavigationService] = {}
         self._routes: dict[str, RouteResponse] = {}
         self._subscribers: dict[str, set[asyncio.Queue[NavigationState]]] = {}
+        self._tracks = tracks or {}
+        self._replays: dict[str, ReplayController] = {}
 
-    async def create(self, origin: Coordinate, destination: Coordinate) -> NavigationSession:
+    async def create(
+        self, origin: Coordinate, destination: Coordinate, track_id: str | None = None
+    ) -> NavigationSession:
         route = await self._client.route(origin, destination)
         session_id = str(uuid4())
         service = NavigationService(self._client, route)
         self._services[session_id] = service
         self._routes[session_id] = route
+        if track_id is not None:
+            points = self._tracks.get(track_id)
+            if points is None:
+                raise ValueError("unknown synthetic track")
+            replay = ReplayController(points)
+            replay.start()
+            self._replays[session_id] = replay
         return NavigationSession(session_id=session_id, route=route, state=service.state)
 
     def get(self, session_id: str) -> NavigationSession | None:
@@ -75,6 +87,15 @@ class NavigationSessionStore:
         for subscriber in self._subscribers.get(session_id, set()):
             subscriber.put_nowait(state)
         return NavigationSession(session_id=session_id, route=route, state=state)
+
+    async def replay_next(self, session_id: str) -> NavigationSession | None:
+        replay = self._replays.get(session_id)
+        if replay is None:
+            return None
+        fix = replay.next_fix()
+        if fix is None:
+            return self.get(session_id)
+        return await self.apply_fix(session_id, fix)
 
     async def subscribe(self, session_id: str) -> AsyncIterator[NavigationState]:
         session = self.get(session_id)

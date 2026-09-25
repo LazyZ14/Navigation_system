@@ -1,4 +1,4 @@
-import type { Coordinate, RouteResponse } from "./types";
+import type { Coordinate, NavigationState, RouteResponse } from "./types";
 
 export function selectionLabel(origin: Coordinate | null, destination: Coordinate | null): string {
   if (origin === null) return "点击地图选择起点";
@@ -8,4 +8,12 @@ export function selectionLabel(origin: Coordinate | null, destination: Coordinat
 
 export function routeLabel(route: RouteResponse): string {
   return "路线 {:.1f} km，预计 {:.0f} 分钟";
+}
+
+export function navigationLabel(state: NavigationState): string {
+  if (state.status === "unmatched") return "定位未匹配到道路，车辆位置保持不变";
+  if (state.status === "arrived") return "已到达目的地";
+  const maneuver = state.next_maneuver?.instruction ?? "沿当前道路行驶";
+  const distance = state.remaining_distance_m === null ? "" : `，剩余 ${(state.remaining_distance_m / 1000).toFixed(1)} km`;
+  return `${maneuver}${distance}`;
 }

@@ -47,3 +47,7 @@ class NavigationSession(BaseModel):
     session_id: str
     route: RouteResponse
     state: NavigationState
+
+
+class NavigationSessionRequest(RouteRequest):
+    track_id: str | None = None

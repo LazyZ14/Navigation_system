@@ -77,3 +77,35 @@ def test_navigation_websocket_sends_current_session_state():
             assert websocket.receive_json()["status"] == "ready"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_navigation_replay_endpoint_advances_only_the_server_owned_synthetic_track():
+    track = [
+        LocationFix(
+            lat=39.9,
+            lon=116.4,
+            heading=90,
+            speed_mps=8,
+            accuracy_m=5,
+            timestamp=datetime(2026, 9, 23, tzinfo=UTC),
+        )
+    ]
+    store = NavigationSessionStore(FakeOsrmClient(), tracks={"normal-route": track})
+    app.dependency_overrides[get_navigation_store] = lambda: store
+    client = TestClient(app)
+    try:
+        created = client.post(
+            "/api/navigation/sessions",
+            json={
+                "origin": {"lat": 39.9, "lon": 116.4},
+                "destination": {"lat": 39.89, "lon": 116.41},
+                "track_id": "normal-route",
+            },
+        )
+
+        replayed = client.post(f"/api/navigation/{created.json()['session_id']}/replay/next")
+
+        assert replayed.status_code == 200
+        assert replayed.json()["state"]["status"] == "navigating"
+    finally:
+        app.dependency_overrides.clear()

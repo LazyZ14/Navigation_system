@@ -15,3 +15,25 @@ export type RouteResponse = {
   duration_s: number;
   maneuvers: Maneuver[];
 };
+
+export type LocationFix = Coordinate & {
+  heading: number;
+  speed_mps: number;
+  accuracy_m: number;
+  timestamp: string;
+};
+
+export type NavigationState = {
+  status: "ready" | "navigating" | "unmatched" | "arrived";
+  raw_location: LocationFix | null;
+  matched_location: Coordinate | null;
+  next_maneuver: Maneuver | null;
+  remaining_distance_m: number | null;
+  off_route: boolean;
+};
+
+export type NavigationSession = {
+  session_id: string;
+  route: RouteResponse;
+  state: NavigationState;
+};

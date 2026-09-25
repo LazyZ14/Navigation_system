@@ -2,9 +2,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import maplibregl from "maplibre-gl";
 
-import { requestRoute } from "./api";
+import { createNavigationSession, requestReplayNext } from "./api";
 import { MapController } from "./map-controller";
-import { selectionLabel } from "./navigation-ui";
+import { navigationLabel, selectionLabel } from "./navigation-ui";
 import type { Coordinate } from "./types";
 
 const map = new maplibregl.Map({
@@ -21,10 +21,13 @@ const map = new maplibregl.Map({
 const status = document.querySelector<HTMLParagraphElement>("#selection-status")!;
 const button = document.querySelector<HTMLButtonElement>("#plan-route")!;
 const summary = document.querySelector<HTMLParagraphElement>("#route-summary")!;
+const replayButton = document.querySelector<HTMLButtonElement>("#start-replay")!;
 let origin: Coordinate | null = null;
 let destination: Coordinate | null = null;
 let originMarker: maplibregl.Marker | null = null;
 let destinationMarker: maplibregl.Marker | null = null;
+let sessionId: string | null = null;
+let replayTimer: number | null = null;
 
 function refreshSelection(): void {
   status.textContent = selectionLabel(origin, destination);
@@ -55,6 +58,9 @@ map.on("load", async () => {
       destinationMarker = null;
       controller.clearRoute();
       summary.textContent = "";
+      sessionId = null;
+      replayButton.disabled = true;
+      if (replayTimer !== null) window.clearInterval(replayTimer);
     } else {
       destination = point;
       destinationMarker = new maplibregl.Marker({ color: "#dc2626" }).setLngLat([point.lon, point.lat]).addTo(map);
@@ -63,9 +69,24 @@ map.on("load", async () => {
   });
   button.addEventListener("click", async () => {
     if (origin === null || destination === null) return;
-    const route = await requestRoute(origin, destination);
-    controller.renderRoute(route);
-    summary.textContent = `路线 ${(route.distance_m / 1000).toFixed(1)} km，预计 ${Math.round(route.duration_s / 60)} 分钟`;
+    const session = await createNavigationSession(origin, destination, "normal-route");
+    sessionId = session.session_id;
+    controller.renderRoute(session.route);
+    summary.textContent = navigationLabel(session.state);
+    replayButton.disabled = false;
+  });
+  replayButton.addEventListener("click", () => {
+    if (sessionId === null || replayTimer !== null) return;
+    replayTimer = window.setInterval(async () => {
+      if (sessionId === null) return;
+      const session = await requestReplayNext(sessionId);
+      controller.updateNavigation(session.state);
+      summary.textContent = navigationLabel(session.state);
+      if (session.state.status === "arrived") {
+        window.clearInterval(replayTimer!);
+        replayTimer = null;
+      }
+    }, 1000);
   });
 });
 
