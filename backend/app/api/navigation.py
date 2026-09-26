@@ -73,6 +73,18 @@ async def replay_next(
     return session
 
 
+@router.post("/{session_id}/replay/pause", status_code=204)
+async def pause_replay(session_id: str, store: NavigationSessionStore = Depends(get_navigation_store)) -> None:
+    if not store.pause_replay(session_id):
+        raise HTTPException(status_code=404, detail={"code": "navigation_session_or_replay_not_found"})
+
+
+@router.post("/{session_id}/replay/resume", status_code=204)
+async def resume_replay(session_id: str, store: NavigationSessionStore = Depends(get_navigation_store)) -> None:
+    if not store.resume_replay(session_id):
+        raise HTTPException(status_code=404, detail={"code": "navigation_session_or_replay_not_found"})
+
+
 @websocket_router.websocket("/ws/navigation/{session_id}")
 async def navigation_updates(
     websocket: WebSocket,

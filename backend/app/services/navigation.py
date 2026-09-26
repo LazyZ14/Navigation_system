@@ -57,6 +57,10 @@ class NavigationService:
         )
         return self._state
 
+    def arrive(self) -> NavigationState:
+        self._state = self._state.model_copy(update={"status": "arrived", "off_route": False})
+        return self._state
+
 
 class NavigationRouteClient(NearestRoadClient, Protocol):
     async def route(self, origin: Coordinate, destination: Coordinate) -> RouteResponse: ...
@@ -97,15 +101,14 @@ class NavigationSessionStore:
 
     async def apply_fix(self, session_id: str, fix: LocationFix) -> NavigationSession | None:
         service = self._services.get(session_id)
-        route = self._routes.get(session_id)
-        if service is None or route is None:
+        if service is None or session_id not in self._routes:
             return None
         state = await service.apply_fix(fix)
         if service.route is not None:
             self._routes[session_id] = service.route
         for subscriber in self._subscribers.get(session_id, set()):
             subscriber.put_nowait(state)
-        return NavigationSession(session_id=session_id, route=route, state=state)
+        return NavigationSession(session_id=session_id, route=self._routes[session_id], state=state)
 
     async def replay_next(self, session_id: str) -> NavigationSession | None:
         replay = self._replays.get(session_id)
@@ -113,8 +116,28 @@ class NavigationSessionStore:
             return None
         fix = replay.next_fix()
         if fix is None:
+            service = self._services.get(session_id)
+            if service is None:
+                return None
+            state = service.arrive()
+            for subscriber in self._subscribers.get(session_id, set()):
+                subscriber.put_nowait(state)
             return self.get(session_id)
         return await self.apply_fix(session_id, fix)
+
+    def pause_replay(self, session_id: str) -> bool:
+        replay = self._replays.get(session_id)
+        if replay is None:
+            return False
+        replay.pause()
+        return True
+
+    def resume_replay(self, session_id: str) -> bool:
+        replay = self._replays.get(session_id)
+        if replay is None:
+            return False
+        replay.resume()
+        return True
 
     async def subscribe(self, session_id: str) -> AsyncIterator[NavigationState]:
         session = self.get(session_id)
