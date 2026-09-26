@@ -7,3 +7,23 @@ services:
     ports:
       - "127.0.0.1:5000:5000"
     restart: "no"
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      OSRM_BASE_URL: http://osrm:5000
+    depends_on:
+      - osrm
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: "no"
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:5173:80"
+    restart: "no"

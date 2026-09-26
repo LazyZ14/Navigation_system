@@ -14,3 +14,21 @@
 ## 实验数据
 
 第一阶段地图源文件为用户提供的北京区域 `map.osm`。原始 OSM、OSRM 构建文件和离线地图瓦片均为可再生数据，不应提交到 Git。
+
+## 一键启动本地 MVP
+
+前提：Docker Desktop 已启动，且本机已通过 `scripts/build_osrm.sh` 生成忽略的
+`data/osrm/beijing.osrm*` 文件，并已生成 `frontend/public/generated/map-roads.geojson`。
+
+```bash
+docker compose up --build
+```
+
+打开 <http://127.0.0.1:5173/>，在地图上依次选择起点和终点，再点击“规划路线”。
+所有服务仅绑定本机回环地址：前端 `5173`、FastAPI `8000`、OSRM `5000`。
+
+停止服务：
+
+```bash
+docker compose down
+```
