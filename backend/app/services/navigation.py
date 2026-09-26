@@ -19,6 +19,7 @@ class NavigationService:
         self._route = route
         self._destination = destination
         self._deviation_count = 0
+        self._last_replan_at = None
         self._state = NavigationState(
             status="ready",
             next_maneuver=route.maneuvers[0] if route and route.maneuvers else None,
@@ -41,9 +42,11 @@ class NavigationService:
         off_route = False
         if self._route and self._destination and distance_to_polyline_m(matched.location, self._route.geometry) > 30:
             self._deviation_count += 1
-            if self._deviation_count >= 3 and hasattr(self._client, "route"):
+            cooldown_elapsed = self._last_replan_at is None or (fix.timestamp - self._last_replan_at).total_seconds() >= 10
+            if self._deviation_count >= 3 and cooldown_elapsed and hasattr(self._client, "route"):
                 self._route = await self._client.route(matched.location, self._destination)  # type: ignore[attr-defined]
                 self._deviation_count = 0
+                self._last_replan_at = fix.timestamp
                 off_route = True
         else:
             self._deviation_count = 0

@@ -36,7 +36,7 @@ class ReplanningClient:
 
     async def route(self, origin: Coordinate, destination: Coordinate) -> RouteResponse:
         self.route_calls += 1
-        return RouteResponse(geometry=[origin, destination], distance_m=600, duration_s=90, maneuvers=[])
+        return self.replacement if hasattr(self, "replacement") else RouteResponse(geometry=[origin, destination], distance_m=600, duration_s=90, maneuvers=[])
 
 
 @pytest.mark.asyncio
@@ -77,3 +77,15 @@ async def test_three_consecutive_matched_deviations_replan_once_and_reset_counte
     assert state.off_route is True
     assert client.route_calls == 1
     assert service.route.distance_m == 600
+
+
+@pytest.mark.asyncio
+async def test_replan_cooldown_prevents_a_second_replan_for_ten_seconds():
+    route = RouteResponse(geometry=[Coordinate(lat=39.9, lon=116.4), Coordinate(lat=39.9, lon=116.41)], distance_m=1000, duration_s=120, maneuvers=[])
+    client = ReplanningClient([MatchedRoad(Coordinate(lat=39.9005, lon=116.4), 5) for _ in range(6)])
+    client.replacement = route
+    service = NavigationService(client, route, destination=Coordinate(lat=39.9, lon=116.41))
+    for second in range(6):
+        await service.apply_fix(fix().model_copy(update={"timestamp": datetime(2026, 9, 23, 0, 0, second, tzinfo=UTC)}))
+
+    assert client.route_calls == 1

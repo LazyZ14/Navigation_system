@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "points": [
+    {"lat": 39.9000, "lon": 116.4000, "heading": 90.0, "speed_mps": 8.0, "accuracy_m": 5.0, "timestamp": "2026-09-23T12:10:00Z"},
+    {"lat": 39.9010, "lon": 116.4000, "heading": 0.0, "speed_mps": 8.0, "accuracy_m": 5.0, "timestamp": "2026-09-23T12:10:01Z"},
+    {"lat": 39.9011, "lon": 116.4000, "heading": 0.0, "speed_mps": 8.0, "accuracy_m": 5.0, "timestamp": "2026-09-23T12:10:02Z"},
+    {"lat": 39.9012, "lon": 116.4000, "heading": 0.0, "speed_mps": 8.0, "accuracy_m": 5.0, "timestamp": "2026-09-23T12:10:03Z"}
+  ]
+}

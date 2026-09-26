@@ -18,7 +18,10 @@ def get_navigation_store() -> NavigationSessionStore:
     track_dir = __import__("pathlib").Path(__file__).parents[3] / "data" / "tracks"
     return NavigationSessionStore(
         OsrmClient(get_settings().osrm_base_url),
-        tracks={"normal-route": load_track(track_dir / "normal-route.json")},
+        tracks={
+            "normal-route": load_track(track_dir / "normal-route.json"),
+            "off-route": load_track(track_dir / "off-route.json"),
+        },
     )
 
 
