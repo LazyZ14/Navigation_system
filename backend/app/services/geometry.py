@@ -3,6 +3,12 @@ from math import cos, hypot, radians
 from app.models import Coordinate
 
 
+def distance_between_m(left: Coordinate, right: Coordinate) -> float:
+    scale_y = 111_320.0
+    scale_x = scale_y * cos(radians((left.lat + right.lat) / 2))
+    return hypot((left.lon - right.lon) * scale_x, (left.lat - right.lat) * scale_y)
+
+
 def polyline_progress_fraction(point: Coordinate, line: list[Coordinate]) -> float:
     """Return the fraction of the polyline reached by the closest projected point."""
     if len(line) < 2:

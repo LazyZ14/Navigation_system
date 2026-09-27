@@ -32,4 +32,17 @@ describe("navigationLabel", () => {
       }),
     ).toContain("已重新规划路线");
   });
+
+  it("distinguishes an exhausted synthetic track from arrival", () => {
+    expect(
+      navigationLabel({
+        status: "replay_finished",
+        raw_location: null,
+        matched_location: { lat: 39.91, lon: 116.4 },
+        next_maneuver: null,
+        remaining_distance_m: 500,
+        off_route: false,
+      }),
+    ).toContain("尚未到达");
+  });
 });

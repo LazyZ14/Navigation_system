@@ -3,10 +3,12 @@ from collections.abc import AsyncIterator
 from typing import Protocol
 from uuid import uuid4
 
+import httpx
+
 from app.models import Coordinate, LocationFix, NavigationSession, NavigationState, RouteResponse
-from app.services.osrm import MatchedRoad
+from app.services.geometry import distance_between_m, distance_to_polyline_m, polyline_progress_fraction
+from app.services.osrm import MatchedRoad, RouteNotFound
 from app.services.replay import ReplayController
-from app.services.geometry import distance_to_polyline_m, polyline_progress_fraction
 
 
 class NearestRoadClient(Protocol):
@@ -44,10 +46,15 @@ class NavigationService:
             self._deviation_count += 1
             cooldown_elapsed = self._last_replan_at is None or (fix.timestamp - self._last_replan_at).total_seconds() >= 10
             if self._deviation_count >= 3 and cooldown_elapsed and hasattr(self._client, "route"):
-                self._route = await self._client.route(matched.location, self._destination)  # type: ignore[attr-defined]
+                try:
+                    replacement = await self._client.route(matched.location, self._destination)  # type: ignore[attr-defined]
+                except (RouteNotFound, httpx.HTTPError, OSError):
+                    replacement = None
                 self._deviation_count = 0
                 self._last_replan_at = fix.timestamp
-                off_route = True
+                if replacement is not None:
+                    self._route = replacement
+                    off_route = True
         else:
             self._deviation_count = 0
         progress = polyline_progress_fraction(matched.location, self._route.geometry) if self._route else 0.0
@@ -75,6 +82,17 @@ class NavigationService:
         self._state = self._state.model_copy(update={"status": "arrived", "off_route": False})
         return self._state
 
+    def finish_replay(self) -> NavigationState:
+        arrived = (
+            self._state.matched_location is not None
+            and self._destination is not None
+            and distance_between_m(self._state.matched_location, self._destination) <= 50
+        )
+        self._state = self._state.model_copy(
+            update={"status": "arrived" if arrived else "replay_finished", "off_route": False}
+        )
+        return self._state
+
 
 class NavigationRouteClient(NearestRoadClient, Protocol):
     async def route(self, origin: Coordinate, destination: Coordinate) -> RouteResponse: ...
@@ -85,22 +103,26 @@ class NavigationSessionStore:
         self._client = client
         self._services: dict[str, NavigationService] = {}
         self._routes: dict[str, RouteResponse] = {}
-        self._subscribers: dict[str, set[asyncio.Queue[NavigationState]]] = {}
+        self._subscribers: dict[str, set[asyncio.Queue[NavigationSession]]] = {}
         self._tracks = tracks or {}
         self._replays: dict[str, ReplayController] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
 
     async def create(
         self, origin: Coordinate, destination: Coordinate, track_id: str | None = None
     ) -> NavigationSession:
+        points = None
+        if track_id is not None:
+            points = self._tracks.get(track_id)
+            if points is None:
+                raise ValueError("unknown synthetic track")
         route = await self._client.route(origin, destination)
         session_id = str(uuid4())
         service = NavigationService(self._client, route, destination=destination)
         self._services[session_id] = service
         self._routes[session_id] = route
-        if track_id is not None:
-            points = self._tracks.get(track_id)
-            if points is None:
-                raise ValueError("unknown synthetic track")
+        self._locks[session_id] = asyncio.Lock()
+        if points is not None:
             replay = ReplayController(points)
             replay.start()
             self._replays[session_id] = replay
@@ -114,32 +136,42 @@ class NavigationSessionStore:
         return NavigationSession(session_id=session_id, route=route, state=service.state)
 
     async def apply_fix(self, session_id: str, fix: LocationFix) -> NavigationSession | None:
+        lock = self._locks.get(session_id)
+        if lock is None:
+            return None
+        async with lock:
+            return await self._apply_fix(session_id, fix)
+
+    async def _apply_fix(self, session_id: str, fix: LocationFix) -> NavigationSession | None:
         service = self._services.get(session_id)
         if service is None or session_id not in self._routes:
             return None
         state = await service.apply_fix(fix)
         if service.route is not None:
             self._routes[session_id] = service.route
-        for subscriber in self._subscribers.get(session_id, set()):
-            subscriber.put_nowait(state)
-        return NavigationSession(session_id=session_id, route=self._routes[session_id], state=state)
+        session = NavigationSession(session_id=session_id, route=self._routes[session_id], state=state)
+        self._publish(session)
+        return session
 
     async def replay_next(self, session_id: str) -> NavigationSession | None:
         replay = self._replays.get(session_id)
-        if replay is None:
+        lock = self._locks.get(session_id)
+        if replay is None or lock is None:
             return None
-        fix = replay.next_fix()
-        if fix is None:
-            if not replay.finished:
-                return self.get(session_id)
-            service = self._services.get(session_id)
-            if service is None:
-                return None
-            state = service.arrive()
-            for subscriber in self._subscribers.get(session_id, set()):
-                subscriber.put_nowait(state)
-            return self.get(session_id)
-        return await self.apply_fix(session_id, fix)
+        async with lock:
+            fix = replay.next_fix()
+            if fix is None:
+                if not replay.finished:
+                    return self.get(session_id)
+                service = self._services.get(session_id)
+                if service is None:
+                    return None
+                service.finish_replay()
+                session = self.get(session_id)
+                if session is not None:
+                    self._publish(session)
+                return session
+            return await self._apply_fix(session_id, fix)
 
     def pause_replay(self, session_id: str) -> bool:
         replay = self._replays.get(session_id)
@@ -155,13 +187,19 @@ class NavigationSessionStore:
         replay.resume()
         return True
 
-    async def subscribe(self, session_id: str) -> AsyncIterator[NavigationState]:
+    def _publish(self, session: NavigationSession) -> None:
+        for subscriber in self._subscribers.get(session.session_id, set()):
+            if subscriber.full():
+                subscriber.get_nowait()
+            subscriber.put_nowait(session)
+
+    async def subscribe(self, session_id: str) -> AsyncIterator[NavigationSession]:
         session = self.get(session_id)
         if session is None:
             return
-        queue: asyncio.Queue[NavigationState] = asyncio.Queue()
+        queue: asyncio.Queue[NavigationSession] = asyncio.Queue(maxsize=1)
         self._subscribers.setdefault(session_id, set()).add(queue)
-        queue.put_nowait(session.state)
+        queue.put_nowait(session)
         try:
             while True:
                 yield await queue.get()

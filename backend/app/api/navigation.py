@@ -101,7 +101,7 @@ async def navigation_updates(
         return
     await websocket.accept()
     try:
-        async for state in store.subscribe(session_id):
-            await websocket.send_json(state.model_dump(mode="json"))
+        async for session in store.subscribe(session_id):
+            await websocket.send_json(session.model_dump(mode="json"))
     except WebSocketDisconnect:
         return

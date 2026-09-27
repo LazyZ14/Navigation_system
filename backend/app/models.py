@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Coordinate(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"lat": 39.9, "lon": 116.4}]})
+
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
 
@@ -21,6 +23,19 @@ class Maneuver(BaseModel):
 
 
 class RouteResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "geometry": [{"lat": 39.9, "lon": 116.4}, {"lat": 39.8994, "lon": 116.404}],
+                    "distance_m": 420.0,
+                    "duration_s": 60.0,
+                    "maneuvers": [],
+                }
+            ]
+        }
+    )
+
     geometry: list[Coordinate]
     distance_m: float
     duration_s: float
@@ -35,7 +50,22 @@ class LocationFix(Coordinate):
 
 
 class NavigationState(BaseModel):
-    status: Literal["ready", "navigating", "unmatched", "arrived"]
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "status": "ready",
+                    "raw_location": None,
+                    "matched_location": None,
+                    "next_maneuver": None,
+                    "remaining_distance_m": 420.0,
+                    "off_route": False,
+                }
+            ]
+        }
+    )
+
+    status: Literal["ready", "navigating", "unmatched", "arrived", "replay_finished"]
     raw_location: LocationFix | None = None
     matched_location: Coordinate | None = None
     next_maneuver: Maneuver | None = None
@@ -50,4 +80,16 @@ class NavigationSession(BaseModel):
 
 
 class NavigationSessionRequest(RouteRequest):
-    track_id: str | None = None
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "origin": {"lat": 39.9, "lon": 116.4},
+                    "destination": {"lat": 39.8994, "lon": 116.404},
+                    "track_id": "normal-route",
+                }
+            ]
+        }
+    )
+
+    track_id: Literal["normal-route", "off-route"] | None = None

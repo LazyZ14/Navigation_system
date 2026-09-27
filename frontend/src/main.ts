@@ -118,7 +118,7 @@ map.on("load", async () => {
         controller.renderRoute(session.route);
         controller.updateNavigation(session.state);
         summary.textContent = navigationLabel(session.state);
-        if (session.state.status === "arrived") {
+        if (session.state.status === "arrived" || session.state.status === "replay_finished") {
           stopReplayTimer();
           replayCompleted = true;
           replayButton.textContent = "重新模拟回放";
