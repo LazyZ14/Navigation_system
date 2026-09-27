@@ -37,8 +37,9 @@ even when empty. OSM tags are reduced to the listed stable properties.
 ## Multipolygon correctness
 
 The parser indexes nodes and ways, then reconstructs only direct `way` members
-of `type=multipolygon` relations. It joins members only when their endpoints
-match exactly, preserving member role:
+of `type=multipolygon` relations. It joins members only when their OSM node
+reference ids match exactly, never by comparing longitude/latitude floating
+point values. It preserves member role:
 
 - closed `outer` rings become polygon exteriors;
 - closed `inner` rings become holes assigned to their containing exterior;
@@ -51,7 +52,18 @@ The implementation must not bridge gaps, infer missing segments, reorder an
 ambiguous branch, or emit a partially reconstructed relation. A nested relation
 member is unsupported in this small standard-library preprocessing pipeline and
 causes the affected relation to be skipped and reported. Closed tagged ways are
-also emitted independently when they match a selected category.
+emitted independently only when they are not members of a relevant target
+relation for that same semantic category.
+
+On a successful target relation, all of its direct member ways are recorded as
+consumed for the relation's semantic category and are not emitted again as
+standalone polygons for that category. This avoids relation/member overlap. If
+a relevant target relation fails reconstruction, all of its relevant direct way
+members are suppressed from standalone output for that category too: there is
+no tagged-way fallback. The deliberate loss of an uncertain feature is safer
+than emitting a partial outer ring, filling a hole, or overlapping a malformed
+relation. Both successful de-duplication and failed-relation suppression are
+covered by tests.
 
 ## Frontend visual architecture
 
