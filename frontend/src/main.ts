@@ -9,8 +9,8 @@ import type { Coordinate } from "./types";
 
 const map = new maplibregl.Map({
   container: "map",
-  center: [116.392, 39.889],
-  zoom: 13,
+  center: [116.402, 39.8997],
+  zoom: 15,
   style: {
     version: 8,
     sources: {},
@@ -23,8 +23,10 @@ const button = document.querySelector<HTMLButtonElement>("#plan-route")!;
 const summary = document.querySelector<HTMLParagraphElement>("#route-summary")!;
 const replayButton = document.querySelector<HTMLButtonElement>("#start-replay")!;
 const trackSelect = document.querySelector<HTMLSelectElement>("#track-select")!;
-let origin: Coordinate | null = null;
-let destination: Coordinate | null = null;
+const demoOrigin: Coordinate = { lat: 39.9, lon: 116.4 };
+const demoDestination: Coordinate = { lat: 39.8994, lon: 116.404 };
+let origin: Coordinate | null = demoOrigin;
+let destination: Coordinate | null = demoDestination;
 let originMarker: maplibregl.Marker | null = null;
 let destinationMarker: maplibregl.Marker | null = null;
 let sessionId: string | null = null;
@@ -54,6 +56,8 @@ map.on("load", async () => {
     },
   });
   const controller = new MapController(map as unknown as import("./map-controller").MapLike);
+  originMarker = new maplibregl.Marker({ color: "#16a34a" }).setLngLat([demoOrigin.lon, demoOrigin.lat]).addTo(map);
+  destinationMarker = new maplibregl.Marker({ color: "#dc2626" }).setLngLat([demoDestination.lon, demoDestination.lat]).addTo(map);
   map.on("click", (event) => {
     const point = { lat: event.lngLat.lat, lon: event.lngLat.lng };
     if (origin === null || destination !== null) {

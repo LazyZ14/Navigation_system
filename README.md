@@ -21,11 +21,22 @@
 `data/osrm/beijing.osrm*` 文件，并已生成 `frontend/public/generated/map-roads.geojson`。
 
 ```bash
-docker compose up --build
+bash scripts/demo.sh
 ```
 
-打开 <http://127.0.0.1:5173/>，在地图上依次选择起点和终点，再点击“规划路线”。
+打开 <http://127.0.0.1:5173/> 后已预置与合成轨迹一致的演示起终点；选择正常或偏航轨迹，
+再点击“规划路线”和“开始模拟回放”即可。也可点击地图改选起终点。回放按钮支持暂停、继续与重新回放。
 所有服务仅绑定本机回环地址：前端 `5173`、FastAPI `8000`、OSRM `5000`。
+
+启动后可运行完整闭环验证：
+
+```bash
+bash scripts/smoke_test.sh
+```
+
+本地容器关系为：浏览器 → `frontend`（Nginx/MapLibre）→ `api`（FastAPI）→ `osrm`。
+前端通过 Nginx 将 `/api` 反向代理给 FastAPI，不直接调用 OSRM；离线道路 GeoJSON 由
+`frontend` 容器静态提供。三个容器用于隔离职责并让启动可复现，并非业务逻辑必须依赖 Docker。
 
 停止服务：
 

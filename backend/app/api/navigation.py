@@ -1,6 +1,8 @@
-import httpx
+import os
 from functools import lru_cache
+from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
 from app.config import get_settings
@@ -15,7 +17,7 @@ websocket_router = APIRouter(tags=["navigation"])
 
 @lru_cache
 def get_navigation_store() -> NavigationSessionStore:
-    track_dir = __import__("pathlib").Path(__file__).parents[3] / "data" / "tracks"
+    track_dir = Path(os.getenv("NAVIGATION_TRACK_DIR", Path(__file__).parents[3] / "data" / "tracks"))
     return NavigationSessionStore(
         OsrmClient(get_settings().osrm_base_url),
         tracks={
