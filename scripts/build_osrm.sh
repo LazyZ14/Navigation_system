@@ -50,4 +50,7 @@ docker run --rm -v "$project_root/data:/data" ghcr.io/project-osrm/osrm-backend:
 
 "$project_root/scripts/verify_data.py" \
   --input "$input_path" \
-  --command "$0 $input_path"
+  --command "$0 $input_path" \
+  --artifact osrm-mld \
+  --tool-version ghcr.io/project-osrm/osrm-backend:v5.27.1 \
+  --output data/osrm/beijing.osrm

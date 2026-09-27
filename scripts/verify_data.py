@@ -6,11 +6,10 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional
 from xml.etree import ElementTree
 
 
-def osm_bounds(path: Path) -> Optional[Dict[str, float]]:
+def osm_bounds(path: Path) -> dict[str, float] | None:
     if path.suffix != ".osm":
         return None
     root = ElementTree.parse(path).getroot()
@@ -20,23 +19,47 @@ def osm_bounds(path: Path) -> Optional[Dict[str, float]]:
     return {key: float(bounds.attrib[key]) for key in ("minlat", "minlon", "maxlat", "maxlon")}
 
 
+def write_build_metadata(
+    *,
+    input_path: Path,
+    command: str,
+    artifact: str,
+    tool_version: str,
+    output: str,
+    output_dir: Path | None = None,
+) -> Path:
+    content = input_path.read_bytes()
+    metadata = {
+        "artifact": artifact,
+        "input_filename": input_path.name,
+        "sha256": hashlib.sha256(content).hexdigest(),
+        "bounds": osm_bounds(input_path),
+        "built_at_utc": datetime.now(timezone.utc).isoformat(),
+        "command": command,
+        "tool_version": tool_version,
+        "output": output,
+    }
+    destination = output_dir or Path(__file__).parents[1] / "data" / "metadata"
+    destination.mkdir(parents=True, exist_ok=True)
+    metadata_path = destination / f"{input_path.name}-{artifact}-build.json"
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
+    return metadata_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--command", required=True)
+    parser.add_argument("--artifact", required=True)
+    parser.add_argument("--tool-version", required=True)
+    parser.add_argument("--output", required=True)
     args = parser.parse_args()
-    content = args.input.read_bytes()
-    metadata = {
-        "input_filename": args.input.name,
-        "sha256": hashlib.sha256(content).hexdigest(),
-        "bounds": osm_bounds(args.input),
-        "built_at_utc": datetime.now(timezone.utc).isoformat(),
-        "command": args.command,
-    }
-    output_dir = Path(__file__).parents[1] / "data" / "metadata"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / f"{args.input.name}-build.json").write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n"
+    write_build_metadata(
+        input_path=args.input,
+        command=args.command,
+        artifact=args.artifact,
+        tool_version=args.tool_version,
+        output=args.output,
     )
 
 

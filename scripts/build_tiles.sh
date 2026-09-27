@@ -3,8 +3,13 @@
 
 import argparse
 import json
+import platform
+import shlex
+import sys
 from pathlib import Path
 from xml.etree import ElementTree
+
+from verify_data import write_build_metadata
 
 
 def main() -> None:
@@ -40,6 +45,13 @@ def main() -> None:
     output = project_root / "frontend" / "public" / "generated" / "map-roads.geojson"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False))
+    write_build_metadata(
+        input_path=args.input,
+        command=shlex.join(sys.argv),
+        artifact="maplibre-road-geojson",
+        tool_version=f"Python {platform.python_version()} xml.etree.ElementTree",
+        output=str(output.relative_to(project_root)),
+    )
     print("wrote {} road features to {}".format(len(features), output))
 
 

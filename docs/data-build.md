@@ -29,7 +29,8 @@ cp /path/to/map.osm data/raw/map.osm
 docker compose up -d osrm
 ```
 
-脚本使用 OSRM 的 MLD 流程：`osrm-extract`、`osrm-partition`、`osrm-customize`。构建完成后，`data/metadata/map.osm-build.json` 保留输入校验值、OSM 边界、构建时间和命令。
+脚本使用 OSRM 的 MLD 流程：`osrm-extract`、`osrm-partition`、`osrm-customize`。构建完成后，
+`data/metadata/map.osm-osrm-mld-build.json` 保留输入校验值、OSM 边界、构建时间、固定镜像版本、输出与命令。
 
 ## 构建当前离线底图
 
@@ -38,3 +39,5 @@ docker compose up -d osrm
 ```
 
 当前导出的地图是 OSM XML，而 tilemaker 仅接收 PBF。第一阶段脚本因此生成本地道路 GeoJSON，供 MapLibre 从 `/generated/map-roads.geojson` 加载；它不访问在线瓦片服务。
+对应的 `data/metadata/map.osm-maplibre-road-geojson-build.json` 独立记录同一输入的校验值、边界、
+Python/XML 工具版本、输出与完整命令，避免覆盖 OSRM 构建记录。
