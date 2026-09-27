@@ -2,7 +2,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import maplibregl from "maplibre-gl";
 
-import { createNavigationSession, pauseReplay, requestReplayNext, resumeReplay } from "./api";
+import { createNavigationSession, getNavigationSession, pauseReplay, requestReplayNext, resumeReplay } from "./api";
 import { MapController } from "./map-controller";
 import { navigationErrorLabel, navigationLabel, selectionLabel } from "./navigation-ui";
 import type { Coordinate } from "./types";
@@ -25,6 +25,7 @@ const replayButton = document.querySelector<HTMLButtonElement>("#start-replay")!
 const trackSelect = document.querySelector<HTMLSelectElement>("#track-select")!;
 const demoOrigin: Coordinate = { lat: 39.9, lon: 116.4 };
 const demoDestination: Coordinate = { lat: 39.8994, lon: 116.404 };
+const sessionStorageKey = "offline-navigation-session";
 let origin: Coordinate | null = demoOrigin;
 let destination: Coordinate | null = demoDestination;
 let originMarker: maplibregl.Marker | null = null;
@@ -32,10 +33,31 @@ let destinationMarker: maplibregl.Marker | null = null;
 let sessionId: string | null = null;
 let replayTimer: number | null = null;
 let replayCompleted = false;
+let replayRunning = false;
 
 function stopReplayTimer(): void {
-  if (replayTimer !== null) window.clearInterval(replayTimer);
+  replayRunning = false;
+  if (replayTimer !== null) window.clearTimeout(replayTimer);
   replayTimer = null;
+}
+
+function saveSession(): void {
+  if (sessionId === null || origin === null || destination === null) return;
+  sessionStorage.setItem(
+    sessionStorageKey,
+    JSON.stringify({ sessionId, origin, destination, trackId: trackSelect.value }),
+  );
+}
+
+function loadSavedSession(): { sessionId: string; origin: Coordinate; destination: Coordinate; trackId: string } | null {
+  const value = sessionStorage.getItem(sessionStorageKey);
+  if (value === null) return null;
+  try {
+    return JSON.parse(value) as { sessionId: string; origin: Coordinate; destination: Coordinate; trackId: string };
+  } catch {
+    sessionStorage.removeItem(sessionStorageKey);
+    return null;
+  }
 }
 
 function refreshSelection(): void {
@@ -44,8 +66,18 @@ function refreshSelection(): void {
 }
 
 map.on("load", async () => {
-  const roads = await fetch("/generated/map-roads.geojson").then((response) => response.json());
-  map.addSource("roads", { type: "geojson", data: roads });
+  let roads: { type: string; features: unknown[] };
+  try {
+    const response = await fetch("/generated/map-roads.geojson");
+    if (!response.ok) throw new Error("offline map data unavailable");
+    roads = (await response.json()) as { type: string; features: unknown[] };
+    if (roads.type !== "FeatureCollection" || roads.features.length === 0) throw new Error("offline map data invalid");
+  } catch {
+    summary.textContent = "无法加载离线地图数据：请先运行地图构建脚本。";
+    button.disabled = true;
+    return;
+  }
+  map.addSource("roads", { type: "geojson", data: roads as never });
   map.addLayer({
     id: "roads-line",
     type: "line",
@@ -58,6 +90,27 @@ map.on("load", async () => {
   const controller = new MapController(map as unknown as import("./map-controller").MapLike);
   originMarker = new maplibregl.Marker({ color: "#16a34a" }).setLngLat([demoOrigin.lon, demoOrigin.lat]).addTo(map);
   destinationMarker = new maplibregl.Marker({ color: "#dc2626" }).setLngLat([demoDestination.lon, demoDestination.lat]).addTo(map);
+  const saved = loadSavedSession();
+  if (saved !== null) {
+    try {
+      const session = await getNavigationSession(saved.sessionId);
+      sessionId = saved.sessionId;
+      origin = saved.origin;
+      destination = saved.destination;
+      trackSelect.value = saved.trackId;
+      originMarker.setLngLat([origin.lon, origin.lat]);
+      destinationMarker.setLngLat([destination.lon, destination.lat]);
+      controller.renderRoute(session.route);
+      controller.updateNavigation(session.state);
+      summary.textContent = navigationLabel(session.state);
+      replayCompleted = session.state.status === "arrived" || session.state.status === "replay_finished";
+      replayButton.disabled = false;
+      replayButton.textContent = replayCompleted ? "重新模拟回放" : "继续模拟回放";
+      refreshSelection();
+    } catch {
+      sessionStorage.removeItem(sessionStorageKey);
+    }
+  }
   map.on("click", (event) => {
     const point = { lat: event.lngLat.lat, lon: event.lngLat.lng };
     if (origin === null || destination !== null) {
@@ -70,6 +123,7 @@ map.on("load", async () => {
       controller.clearRoute();
       summary.textContent = "";
       sessionId = null;
+      sessionStorage.removeItem(sessionStorageKey);
       replayButton.disabled = true;
       replayButton.textContent = "开始模拟回放";
       replayCompleted = false;
@@ -86,49 +140,64 @@ map.on("load", async () => {
       stopReplayTimer();
       const session = await createNavigationSession(origin, destination, trackSelect.value);
       sessionId = session.session_id;
+      controller.resetNavigation();
       controller.renderRoute(session.route);
       summary.textContent = navigationLabel(session.state);
       replayButton.disabled = false;
       replayButton.textContent = "开始模拟回放";
       replayCompleted = false;
+      saveSession();
     } catch (error) {
       summary.textContent = navigationErrorLabel(error instanceof Error ? error : new Error("unknown"));
     }
   });
+  const advanceReplay = async (): Promise<void> => {
+    replayTimer = null;
+    if (!replayRunning || sessionId === null) return;
+    try {
+      const session = await requestReplayNext(sessionId);
+      controller.renderRoute(session.route);
+      controller.updateNavigation(session.state);
+      summary.textContent = navigationLabel(session.state);
+      if (session.state.status === "arrived" || session.state.status === "replay_finished") {
+        stopReplayTimer();
+        replayCompleted = true;
+        replayButton.textContent = "重新模拟回放";
+      } else if (replayRunning) {
+        replayTimer = window.setTimeout(() => void advanceReplay(), 1000);
+      }
+    } catch (error) {
+      stopReplayTimer();
+      replayButton.textContent = "继续模拟回放";
+      summary.textContent = navigationErrorLabel(error instanceof Error ? error : new Error("unknown"));
+    }
+  };
   replayButton.addEventListener("click", async () => {
     if (sessionId === null || origin === null || destination === null) return;
-    if (replayTimer !== null) {
-      stopReplayTimer();
-      await pauseReplay(sessionId);
-      replayButton.textContent = "继续模拟回放";
-      return;
-    }
-    if (replayCompleted) {
-      const session = await createNavigationSession(origin, destination, trackSelect.value);
-      sessionId = session.session_id;
-      controller.renderRoute(session.route);
-      replayCompleted = false;
-    }
-    await resumeReplay(sessionId);
-    replayButton.textContent = "暂停模拟回放";
-    replayTimer = window.setInterval(async () => {
-      if (sessionId === null) return;
-      try {
-        const session = await requestReplayNext(sessionId);
-        controller.renderRoute(session.route);
-        controller.updateNavigation(session.state);
-        summary.textContent = navigationLabel(session.state);
-        if (session.state.status === "arrived" || session.state.status === "replay_finished") {
-          stopReplayTimer();
-          replayCompleted = true;
-          replayButton.textContent = "重新模拟回放";
-        }
-      } catch (error) {
+    try {
+      if (replayRunning) {
         stopReplayTimer();
+        await pauseReplay(sessionId);
         replayButton.textContent = "继续模拟回放";
-        summary.textContent = navigationErrorLabel(error instanceof Error ? error : new Error("unknown"));
+        return;
       }
-    }, 1000);
+      if (replayCompleted) {
+        const session = await createNavigationSession(origin, destination, trackSelect.value);
+        sessionId = session.session_id;
+        controller.resetNavigation();
+        controller.renderRoute(session.route);
+        replayCompleted = false;
+        saveSession();
+      }
+      await resumeReplay(sessionId);
+      replayRunning = true;
+      replayButton.textContent = "暂停模拟回放";
+      replayTimer = window.setTimeout(() => void advanceReplay(), 0);
+    } catch (error) {
+      stopReplayTimer();
+      replayButton.textContent = "继续模拟回放";
+      summary.textContent = navigationErrorLabel(error instanceof Error ? error : new Error("unknown"));
+    }
   });
 });
 

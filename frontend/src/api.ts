@@ -24,6 +24,12 @@ export async function createNavigationSession(
   return response.json() as Promise<NavigationSession>;
 }
 
+export async function getNavigationSession(sessionId: string): Promise<NavigationSession> {
+  const response = await fetch(`/api/navigation/${sessionId}`);
+  if (!response.ok) throw new Error("无法恢复导航会话");
+  return response.json() as Promise<NavigationSession>;
+}
+
 export async function requestReplayNext(sessionId: string): Promise<NavigationSession> {
   const response = await fetch(`/api/navigation/${sessionId}/replay/next`, { method: "POST" });
   if (!response.ok) throw new Error("无法推进模拟定位回放");

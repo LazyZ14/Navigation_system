@@ -65,11 +65,19 @@ export class MapController {
 
   clearRoute(): void {
     this.routeCoordinates = [];
-    for (const layerId of [...ROUTE_LAYER_IDS, PASSED_LAYER_ID]) {
+    for (const layerId of ROUTE_LAYER_IDS) {
       if (this.map.getLayer(layerId)) this.map.removeLayer(layerId);
     }
     if (this.map.getSource(ROUTE_SOURCE_ID)) this.map.removeSource(ROUTE_SOURCE_ID);
+    this.resetNavigation();
+  }
+
+  resetNavigation(): void {
+    for (const layerId of [PASSED_LAYER_ID, VEHICLE_LAYER_ID]) {
+      if (this.map.getLayer(layerId)) this.map.removeLayer(layerId);
+    }
     if (this.map.getSource(PASSED_SOURCE_ID)) this.map.removeSource(PASSED_SOURCE_ID);
+    if (this.map.getSource(VEHICLE_SOURCE_ID)) this.map.removeSource(VEHICLE_SOURCE_ID);
   }
 
   updateNavigation(state: NavigationState): void {

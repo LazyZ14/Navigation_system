@@ -118,4 +118,25 @@ describe("MapController", () => {
       geometry: { coordinates: [[116.4, 39.9], [116.405, 39.9]] },
     });
   });
+
+  it("clears the previous vehicle and passed route before a new session", () => {
+    const map = new FakeMap();
+    const controller = new MapController(map);
+    controller.renderRoute(route);
+    controller.updateNavigation({
+      status: "navigating",
+      raw_location: null,
+      matched_location: { lat: 39.9, lon: 116.4 },
+      next_maneuver: null,
+      remaining_distance_m: 500,
+      off_route: false,
+    } as never);
+
+    controller.resetNavigation();
+
+    expect(map.sources.has("route-passed")).toBe(false);
+    expect(map.sources.has("vehicle")).toBe(false);
+    expect(map.layers.has("route-passed")).toBe(false);
+    expect(map.layers.has("vehicle-marker")).toBe(false);
+  });
 });

@@ -13,7 +13,11 @@ require_local_get() {
 }
 
 require_local_get "frontend" "http://127.0.0.1:5173/"
-require_local_get "offline map data" "http://127.0.0.1:5173/generated/map-roads.geojson"
+if ! curl --max-time 3 --fail --silent "http://127.0.0.1:5173/generated/map-roads.geojson" \
+  | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["type"] == "FeatureCollection" and data["features"]'; then
+  echo "offline map data is missing or invalid" >&2
+  exit 1
+fi
 route=$(curl --max-time 3 --fail --silent -X POST "$api_base/api/routes" -H 'content-type: application/json' -d '{"origin":{"lat":39.9000,"lon":116.4000},"destination":{"lat":39.8994,"lon":116.4040}}')
 python3 -c 'import json,sys; assert json.load(sys.stdin)["geometry"]' <<<"$route"
 session=$(curl --max-time 3 --fail --silent -X POST "$api_base/api/navigation/sessions" -H 'content-type: application/json' -d '{"origin":{"lat":39.9000,"lon":116.4000},"destination":{"lat":39.8994,"lon":116.4040},"track_id":"normal-route"}')
