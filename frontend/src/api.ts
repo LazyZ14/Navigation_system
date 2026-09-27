@@ -29,3 +29,16 @@ export async function requestReplayNext(sessionId: string): Promise<NavigationSe
   if (!response.ok) throw new Error("无法推进模拟定位回放");
   return response.json() as Promise<NavigationSession>;
 }
+
+async function controlReplay(sessionId: string, action: "pause" | "resume"): Promise<void> {
+  const response = await fetch(`/api/navigation/${sessionId}/replay/${action}`, { method: "POST" });
+  if (!response.ok) throw new Error(`无法${action === "pause" ? "暂停" : "继续"}模拟定位回放`);
+}
+
+export function pauseReplay(sessionId: string): Promise<void> {
+  return controlReplay(sessionId, "pause");
+}
+
+export function resumeReplay(sessionId: string): Promise<void> {
+  return controlReplay(sessionId, "resume");
+}

@@ -2,7 +2,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import maplibregl from "maplibre-gl";
 
-import { createNavigationSession, requestReplayNext } from "./api";
+import { createNavigationSession, pauseReplay, requestReplayNext, resumeReplay } from "./api";
 import { MapController } from "./map-controller";
 import { navigationErrorLabel, navigationLabel, selectionLabel } from "./navigation-ui";
 import type { Coordinate } from "./types";
@@ -22,12 +22,19 @@ const status = document.querySelector<HTMLParagraphElement>("#selection-status")
 const button = document.querySelector<HTMLButtonElement>("#plan-route")!;
 const summary = document.querySelector<HTMLParagraphElement>("#route-summary")!;
 const replayButton = document.querySelector<HTMLButtonElement>("#start-replay")!;
+const trackSelect = document.querySelector<HTMLSelectElement>("#track-select")!;
 let origin: Coordinate | null = null;
 let destination: Coordinate | null = null;
 let originMarker: maplibregl.Marker | null = null;
 let destinationMarker: maplibregl.Marker | null = null;
 let sessionId: string | null = null;
 let replayTimer: number | null = null;
+let replayCompleted = false;
+
+function stopReplayTimer(): void {
+  if (replayTimer !== null) window.clearInterval(replayTimer);
+  replayTimer = null;
+}
 
 function refreshSelection(): void {
   status.textContent = selectionLabel(origin, destination);
@@ -60,7 +67,9 @@ map.on("load", async () => {
       summary.textContent = "";
       sessionId = null;
       replayButton.disabled = true;
-      if (replayTimer !== null) window.clearInterval(replayTimer);
+      replayButton.textContent = "开始模拟回放";
+      replayCompleted = false;
+      stopReplayTimer();
     } else {
       destination = point;
       destinationMarker = new maplibregl.Marker({ color: "#dc2626" }).setLngLat([point.lon, point.lat]).addTo(map);
@@ -70,26 +79,50 @@ map.on("load", async () => {
   button.addEventListener("click", async () => {
     if (origin === null || destination === null) return;
     try {
-      const session = await createNavigationSession(origin, destination, "normal-route");
+      stopReplayTimer();
+      const session = await createNavigationSession(origin, destination, trackSelect.value);
       sessionId = session.session_id;
       controller.renderRoute(session.route);
       summary.textContent = navigationLabel(session.state);
       replayButton.disabled = false;
+      replayButton.textContent = "开始模拟回放";
+      replayCompleted = false;
     } catch (error) {
       summary.textContent = navigationErrorLabel(error instanceof Error ? error : new Error("unknown"));
     }
   });
-  replayButton.addEventListener("click", () => {
-    if (sessionId === null || replayTimer !== null) return;
+  replayButton.addEventListener("click", async () => {
+    if (sessionId === null || origin === null || destination === null) return;
+    if (replayTimer !== null) {
+      stopReplayTimer();
+      await pauseReplay(sessionId);
+      replayButton.textContent = "继续模拟回放";
+      return;
+    }
+    if (replayCompleted) {
+      const session = await createNavigationSession(origin, destination, trackSelect.value);
+      sessionId = session.session_id;
+      controller.renderRoute(session.route);
+      replayCompleted = false;
+    }
+    await resumeReplay(sessionId);
+    replayButton.textContent = "暂停模拟回放";
     replayTimer = window.setInterval(async () => {
       if (sessionId === null) return;
-      const session = await requestReplayNext(sessionId);
-      controller.renderRoute(session.route);
-      controller.updateNavigation(session.state);
-      summary.textContent = navigationLabel(session.state);
-      if (session.state.status === "arrived") {
-        window.clearInterval(replayTimer!);
-        replayTimer = null;
+      try {
+        const session = await requestReplayNext(sessionId);
+        controller.renderRoute(session.route);
+        controller.updateNavigation(session.state);
+        summary.textContent = navigationLabel(session.state);
+        if (session.state.status === "arrived") {
+          stopReplayTimer();
+          replayCompleted = true;
+          replayButton.textContent = "重新模拟回放";
+        }
+      } catch (error) {
+        stopReplayTimer();
+        replayButton.textContent = "继续模拟回放";
+        summary.textContent = navigationErrorLabel(error instanceof Error ? error : new Error("unknown"));
       }
     }, 1000);
   });
