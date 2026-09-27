@@ -11,6 +11,8 @@ from xml.etree import ElementTree
 
 from verify_data import write_build_metadata
 
+GeoJsonPosition = tuple[float, float]
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -20,8 +22,8 @@ def main() -> None:
         parser.error("input must be an existing .osm file")
 
     root = ElementTree.parse(args.input).getroot()
-    nodes = {
-        node.attrib["id"]: [float(node.attrib["lon"]), float(node.attrib["lat"])]
+    nodes: dict[str, GeoJsonPosition] = {
+        node.attrib["id"]: (float(node.attrib["lon"]), float(node.attrib["lat"]))
         for node in root.findall("node")
     }
     features = []
@@ -30,7 +32,9 @@ def main() -> None:
         road_class = tags.get("highway")
         if road_class is None:
             continue
-        coordinates = [nodes[nd.attrib["ref"]] for nd in way.findall("nd") if nd.attrib["ref"] in nodes]
+        coordinates: list[GeoJsonPosition] = [
+            nodes[nd.attrib["ref"]] for nd in way.findall("nd") if nd.attrib["ref"] in nodes
+        ]
         if len(coordinates) < 2:
             continue
         features.append(

@@ -139,4 +139,30 @@ describe("MapController", () => {
     expect(map.layers.has("route-passed")).toBe(false);
     expect(map.layers.has("vehicle-marker")).toBe(false);
   });
+
+  it("uses projected meter distance when selecting the passed-route vertex", () => {
+    const map = new FakeMap();
+    const controller = new MapController(map);
+    controller.renderRoute({
+      ...route,
+      geometry: [
+        { lat: 60, lon: 0 },
+        { lat: 60, lon: 0.001 },
+        { lat: 60.0007, lon: 0 },
+      ],
+    });
+
+    controller.updateNavigation({
+      status: "navigating",
+      raw_location: null,
+      matched_location: { lat: 60.0007, lon: 0.0009 },
+      next_maneuver: null,
+      remaining_distance_m: 100,
+      off_route: false,
+    } as never);
+
+    expect(map.sources.get("route-passed")?.data).toMatchObject({
+      geometry: { coordinates: expect.arrayContaining([[0, 60.0007]]) },
+    });
+  });
 });

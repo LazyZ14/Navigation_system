@@ -1,15 +1,17 @@
 import type { NavigationState, RouteResponse } from "./types";
 
+type GeoJsonPosition = [longitude: number, latitude: number];
+
 type LineFeature = {
   type: "Feature";
   properties: Record<string, never>;
-  geometry: { type: "LineString"; coordinates: number[][] };
+  geometry: { type: "LineString"; coordinates: GeoJsonPosition[] };
 };
 
 type PointFeature = {
   type: "Feature";
   properties: { heading: number };
-  geometry: { type: "Point"; coordinates: number[] };
+  geometry: { type: "Point"; coordinates: GeoJsonPosition };
 };
 
 type GeoJsonFeature = LineFeature | PointFeature;
@@ -35,7 +37,7 @@ const PASSED_SOURCE_ID = "route-passed";
 const PASSED_LAYER_ID = "route-passed";
 
 export class MapController {
-  private routeCoordinates: number[][] = [];
+  private routeCoordinates: GeoJsonPosition[] = [];
 
   constructor(private readonly map: MapLike) {}
 
@@ -112,18 +114,22 @@ export class MapController {
   private updatePassedRoute(lon: number, lat: number): void {
     if (this.routeCoordinates.length === 0) return;
     let nearestIndex = 0;
-    let nearestDistance = Number.POSITIVE_INFINITY;
+    let nearestDistanceSquaredM = Number.POSITIVE_INFINITY;
     this.routeCoordinates.forEach(([routeLon, routeLat], index) => {
-      const distance = (routeLon - lon) ** 2 + (routeLat - lat) ** 2;
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
+      const metersPerDegreeLatitude = 111_320;
+      const meanLatitudeRadians = ((routeLat + lat) / 2) * (Math.PI / 180);
+      const eastDistanceM = (routeLon - lon) * metersPerDegreeLatitude * Math.cos(meanLatitudeRadians);
+      const northDistanceM = (routeLat - lat) * metersPerDegreeLatitude;
+      const distanceSquaredM = eastDistanceM ** 2 + northDistanceM ** 2;
+      if (distanceSquaredM < nearestDistanceSquaredM) {
+        nearestDistanceSquaredM = distanceSquaredM;
         nearestIndex = index;
       }
     });
     const coordinates = this.routeCoordinates.slice(0, nearestIndex + 1);
     const last = coordinates.at(-1);
     if (last?.[0] !== lon || last?.[1] !== lat) coordinates.push([lon, lat]);
-    if (coordinates.length === 1) coordinates.push([...coordinates[0]]);
+    if (coordinates.length === 1) coordinates.push([coordinates[0][0], coordinates[0][1]]);
     const data: LineFeature = {
       type: "Feature",
       properties: {},

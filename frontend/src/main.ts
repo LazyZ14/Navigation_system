@@ -112,13 +112,15 @@ map.on("load", async () => {
     }
   }
   map.on("click", (event) => {
-    const point = { lat: event.lngLat.lat, lon: event.lngLat.lng };
+    const geographicCoordinate: Coordinate = { lat: event.lngLat.lat, lon: event.lngLat.lng };
     if (origin === null || destination !== null) {
-      origin = point;
+      origin = geographicCoordinate;
       destination = null;
       originMarker?.remove();
       destinationMarker?.remove();
-      originMarker = new maplibregl.Marker({ color: "#16a34a" }).setLngLat([point.lon, point.lat]).addTo(map);
+      originMarker = new maplibregl.Marker({ color: "#16a34a" })
+        .setLngLat([geographicCoordinate.lon, geographicCoordinate.lat])
+        .addTo(map);
       destinationMarker = null;
       controller.clearRoute();
       summary.textContent = "";
@@ -129,8 +131,10 @@ map.on("load", async () => {
       replayCompleted = false;
       stopReplayTimer();
     } else {
-      destination = point;
-      destinationMarker = new maplibregl.Marker({ color: "#dc2626" }).setLngLat([point.lon, point.lat]).addTo(map);
+      destination = geographicCoordinate;
+      destinationMarker = new maplibregl.Marker({ color: "#dc2626" })
+        .setLngLat([geographicCoordinate.lon, geographicCoordinate.lat])
+        .addTo(map);
     }
     refreshSelection();
   });
