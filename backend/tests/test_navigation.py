@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.models import Coordinate, LocationFix, RouteResponse
+from app.models import Coordinate, LocationFix, Maneuver, RouteResponse
 from app.services.navigation import NavigationService
 from app.services.osrm import MatchedRoad
 
@@ -57,6 +57,35 @@ async def test_distant_road_match_returns_unmatched_state():
 
     assert state.status == "unmatched"
     assert state.matched_location is None
+
+
+@pytest.mark.asyncio
+async def test_matched_progress_reduces_remaining_distance_and_advances_maneuver():
+    route = RouteResponse(
+        geometry=[
+            Coordinate(lat=39.9, lon=116.4),
+            Coordinate(lat=39.9, lon=116.405),
+            Coordinate(lat=39.9, lon=116.41),
+        ],
+        distance_m=1000,
+        duration_s=120,
+        maneuvers=[
+            Maneuver(instruction="继续直行", distance_m=400, location=Coordinate(lat=39.9, lon=116.402)),
+            Maneuver(instruction="右转", distance_m=300, location=Coordinate(lat=39.9, lon=116.408)),
+        ],
+    )
+    service = NavigationService(
+        FakeOsrmClient(MatchedRoad(location=Coordinate(lat=39.9, lon=116.406), distance_m=5)),
+        route,
+        destination=route.geometry[-1],
+    )
+
+    state = await service.apply_fix(fix())
+
+    assert state.remaining_distance_m is not None
+    assert 0 < state.remaining_distance_m < route.distance_m
+    assert state.next_maneuver is not None
+    assert state.next_maneuver.instruction == "右转"
 
 
 @pytest.mark.asyncio

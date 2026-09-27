@@ -30,6 +30,10 @@ class ReplayController:
         if self._index < len(self._points):
             self._running = True
 
+    @property
+    def finished(self) -> bool:
+        return self._index >= len(self._points)
+
     def next_fix(self) -> LocationFix | None:
         if not self._running or self._index >= len(self._points):
             return None

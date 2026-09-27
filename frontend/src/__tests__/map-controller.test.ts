@@ -91,4 +91,31 @@ describe("MapController", () => {
 
     expect(map.sources.get("vehicle")?.data).toMatchObject({ geometry: { coordinates: [116.4, 39.9] } });
   });
+
+  it("renders the passed route prefix in gray from the matched vehicle position", () => {
+    const map = new FakeMap();
+    const controller = new MapController(map);
+    controller.renderRoute({
+      ...route,
+      geometry: [
+        { lat: 39.9, lon: 116.4 },
+        { lat: 39.9, lon: 116.405 },
+        { lat: 39.9, lon: 116.41 },
+      ],
+    });
+
+    controller.updateNavigation({
+      status: "navigating",
+      raw_location: null,
+      matched_location: { lat: 39.9, lon: 116.405 },
+      next_maneuver: null,
+      remaining_distance_m: 500,
+      off_route: false,
+    } as never);
+
+    expect(map.layers.has("route-passed")).toBe(true);
+    expect(map.sources.get("route-passed")?.data).toMatchObject({
+      geometry: { coordinates: [[116.4, 39.9], [116.405, 39.9]] },
+    });
+  });
 });

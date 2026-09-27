@@ -142,7 +142,9 @@ def test_replay_pause_preserves_the_next_fix_until_resumed():
         session_id = client.post("/api/navigation/sessions", json={"origin": {"lat": 39.9, "lon": 116.4}, "destination": {"lat": 39.89, "lon": 116.41}, "track_id": "normal-route"}).json()["session_id"]
         client.post(f"/api/navigation/{session_id}/replay/next")
         assert client.post(f"/api/navigation/{session_id}/replay/pause").status_code == 204
-        assert client.post(f"/api/navigation/{session_id}/replay/next").json()["state"]["raw_location"]["lon"] == 116.4
+        paused = client.post(f"/api/navigation/{session_id}/replay/next").json()["state"]
+        assert paused["status"] == "navigating"
+        assert paused["raw_location"]["lon"] == 116.4
 
         assert client.post(f"/api/navigation/{session_id}/replay/resume").status_code == 204
         assert client.post(f"/api/navigation/{session_id}/replay/next").json()["state"]["raw_location"]["lon"] == 116.401

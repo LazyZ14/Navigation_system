@@ -6,7 +6,7 @@ from uuid import uuid4
 from app.models import Coordinate, LocationFix, NavigationSession, NavigationState, RouteResponse
 from app.services.osrm import MatchedRoad
 from app.services.replay import ReplayController
-from app.services.geometry import distance_to_polyline_m
+from app.services.geometry import distance_to_polyline_m, polyline_progress_fraction
 
 
 class NearestRoadClient(Protocol):
@@ -50,12 +50,23 @@ class NavigationService:
                 off_route = True
         else:
             self._deviation_count = 0
+        progress = polyline_progress_fraction(matched.location, self._route.geometry) if self._route else 0.0
+        next_maneuver = None
+        if self._route:
+            next_maneuver = next(
+                (
+                    maneuver
+                    for maneuver in self._route.maneuvers
+                    if polyline_progress_fraction(maneuver.location, self._route.geometry) >= progress
+                ),
+                None,
+            )
         self._state = NavigationState(
             status="navigating",
             raw_location=fix,
             matched_location=matched.location,
-            next_maneuver=self._route.maneuvers[0] if self._route and self._route.maneuvers else None,
-            remaining_distance_m=self._route.distance_m if self._route else None,
+            next_maneuver=next_maneuver,
+            remaining_distance_m=self._route.distance_m * (1 - progress) if self._route else None,
             off_route=off_route,
         )
         return self._state
@@ -119,6 +130,8 @@ class NavigationSessionStore:
             return None
         fix = replay.next_fix()
         if fix is None:
+            if not replay.finished:
+                return self.get(session_id)
             service = self._services.get(session_id)
             if service is None:
                 return None

@@ -15,7 +15,8 @@ export function navigationLabel(state: NavigationState): string {
   if (state.status === "arrived") return "已到达目的地";
   const maneuver = state.next_maneuver?.instruction ?? "沿当前道路行驶";
   const distance = state.remaining_distance_m === null ? "" : `，剩余 ${(state.remaining_distance_m / 1000).toFixed(1)} km`;
-  return `${maneuver}${distance}`;
+  const replan = state.off_route ? "已重新规划路线；" : "";
+  return `${replan}${maneuver}${distance}`;
 }
 
 export function navigationErrorLabel(_: Error): string {
