@@ -30,6 +30,7 @@ export type NavigationState = {
   next_maneuver: Maneuver | null;
   remaining_distance_m: number | null;
   off_route: boolean;
+  progress: number;
 };
 
 export type NavigationSession = {

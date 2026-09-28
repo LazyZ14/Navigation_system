@@ -60,6 +60,7 @@ class NavigationState(BaseModel):
                     "next_maneuver": None,
                     "remaining_distance_m": 420.0,
                     "off_route": False,
+                    "progress": 0.0,
                 }
             ]
         }
@@ -71,6 +72,7 @@ class NavigationState(BaseModel):
     next_maneuver: Maneuver | None = None
     remaining_distance_m: float | None = None
     off_route: bool = False
+    progress: float = 0.0
 
 
 class NavigationSession(BaseModel):
@@ -92,4 +94,4 @@ class NavigationSessionRequest(RouteRequest):
         }
     )
 
-    track_id: Literal["normal-route", "off-route"] | None = None
+    track_id: Literal["normal-route", "off-route", "current-route"] | None = None

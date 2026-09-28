@@ -1,5 +1,5 @@
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -53,7 +53,7 @@ def test_navigation_session_exposes_ready_and_matched_state_over_public_api():
                 "heading": 90,
                 "speed_mps": 8,
                 "accuracy_m": 5,
-                "timestamp": datetime(2026, 9, 23, tzinfo=UTC).isoformat(),
+                "timestamp": datetime(2026, 9, 23, tzinfo=timezone.utc).isoformat(),
             },
         )
 
@@ -91,7 +91,7 @@ def test_navigation_replay_endpoint_advances_only_the_server_owned_synthetic_tra
             heading=90,
             speed_mps=8,
             accuracy_m=5,
-            timestamp=datetime(2026, 9, 23, tzinfo=UTC),
+            timestamp=datetime(2026, 9, 23, tzinfo=timezone.utc),
         )
     ]
     store = NavigationSessionStore(FakeOsrmClient(), tracks={"normal-route": track})
@@ -117,7 +117,7 @@ def test_navigation_replay_endpoint_advances_only_the_server_owned_synthetic_tra
 
 def test_replay_reports_arrival_after_last_synthetic_fix():
     track = [
-        LocationFix(lat=39.9, lon=116.4, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, tzinfo=UTC))
+        LocationFix(lat=39.9, lon=116.4, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, tzinfo=timezone.utc))
     ]
     store = NavigationSessionStore(FakeOsrmClient(), tracks={"normal-route": track})
     app.dependency_overrides[get_navigation_store] = lambda: store
@@ -136,8 +136,8 @@ def test_replay_reports_arrival_after_last_synthetic_fix():
 
 def test_replay_pause_preserves_the_next_fix_until_resumed():
     track = [
-        LocationFix(lat=39.9, lon=116.4, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, tzinfo=UTC)),
-        LocationFix(lat=39.9, lon=116.401, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, 0, 0, 1, tzinfo=UTC)),
+        LocationFix(lat=39.9, lon=116.4, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, tzinfo=timezone.utc)),
+        LocationFix(lat=39.9, lon=116.401, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, 0, 0, 1, tzinfo=timezone.utc)),
     ]
     store = NavigationSessionStore(FakeOsrmClient(), tracks={"normal-route": track})
     app.dependency_overrides[get_navigation_store] = lambda: store
@@ -177,7 +177,7 @@ def test_unknown_track_is_rejected_without_creating_a_route():
 
 def test_replay_finishing_far_from_destination_does_not_report_arrival():
     track = [
-        LocationFix(lat=39.91, lon=116.4, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, tzinfo=UTC))
+        LocationFix(lat=39.91, lon=116.4, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, tzinfo=timezone.utc))
     ]
 
     class FarMatchClient(FakeOsrmClient):
@@ -215,7 +215,7 @@ async def test_concurrent_replay_requests_are_serialized_per_session():
             return MatchedRoad(location=location, distance_m=5)
 
     points = [
-        LocationFix(lat=39.9, lon=116.4 + index * 0.001, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, 0, 0, index, tzinfo=UTC))
+        LocationFix(lat=39.9, lon=116.4 + index * 0.001, heading=90, speed_mps=8, accuracy_m=5, timestamp=datetime(2026, 9, 23, 0, 0, index, tzinfo=timezone.utc))
         for index in range(2)
     ]
     client = SlowFirstMatchClient()
@@ -234,3 +234,49 @@ async def test_concurrent_replay_requests_are_serialized_per_session():
     assert first_result.state.raw_location is not None
     assert second_result.state.raw_location is not None
     assert first_result.state.raw_location.lon < second_result.state.raw_location.lon
+
+
+def test_api_accepts_current_route_track_id():
+    store = NavigationSessionStore(FakeOsrmClient())
+    app.dependency_overrides[get_navigation_store] = lambda: store
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/api/navigation/sessions",
+            json={
+                "origin": {"lat": 39.9, "lon": 116.4},
+                "destination": {"lat": 39.89, "lon": 116.41},
+                "track_id": "current-route",
+            },
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["session_id"]
+        assert payload["route"]["geometry"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_api_replay_progresses_through_current_route():
+    store = NavigationSessionStore(FakeOsrmClient())
+    app.dependency_overrides[get_navigation_store] = lambda: store
+    client = TestClient(app)
+    try:
+        created = client.post(
+            "/api/navigation/sessions",
+            json={
+                "origin": {"lat": 39.9, "lon": 116.4},
+                "destination": {"lat": 39.89, "lon": 116.41},
+                "track_id": "current-route",
+            },
+        )
+        assert created.status_code == 201
+        session_id = created.json()["session_id"]
+
+        # Replay a few times to verify it progresses
+        for _ in range(5):
+            replay = client.post(f"/api/navigation/{session_id}/replay/next")
+            assert replay.status_code == 200
+    finally:
+        app.dependency_overrides.clear()

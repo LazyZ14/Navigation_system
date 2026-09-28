@@ -12,8 +12,9 @@
         <p id="selection-status">点击地图选择起点</p>
         <label for="track-select">合成轨迹</label>
         <select id="track-select">
-          <option value="normal-route">正常路线</option>
-          <option value="off-route">偏航重规划</option>
+          <option value="current-route" selected>模拟当前路线</option>
+          <option value="normal-route">回归测试：正常轨迹</option>
+          <option value="off-route">回归测试：偏航轨迹</option>
         </select>
         <button id="plan-route" type="button" disabled>规划路线</button>
         <button id="start-replay" type="button" disabled>开始模拟回放</button>

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import json
 from pathlib import Path
 
@@ -15,7 +15,7 @@ def point(seconds: int) -> LocationFix:
         heading=90,
         speed_mps=8,
         accuracy_m=5,
-        timestamp=datetime(2026, 9, 23, tzinfo=UTC) + timedelta(seconds=seconds),
+        timestamp=datetime(2026, 9, 23, tzinfo=timezone.utc) + timedelta(seconds=seconds),
     )
 
 

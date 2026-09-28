@@ -112,6 +112,7 @@ describe("MapController", () => {
       next_maneuver: null,
       remaining_distance_m: 500,
       off_route: false,
+      progress: 0.5,
     } as never);
 
     expect(map.layers.has("route-passed")).toBe(true);
@@ -160,11 +161,116 @@ describe("MapController", () => {
       next_maneuver: null,
       remaining_distance_m: 100,
       off_route: false,
+      progress: 1.0,
     } as never);
 
     expect(map.sources.get("route-passed")?.data).toMatchObject({
       geometry: { coordinates: expect.arrayContaining([[0, 60.0007]]) },
     });
+  });
+
+  it("uses distance-based slicing for non-uniform segment lengths", () => {
+    // Regression: must NOT use vertex-count approximation (progress * vertexCount)
+    // Route: A→B = 10m, B→C = 100m, C→D = 10m, total = 120m
+    // At progress=0.5 (60m), should be 50m into B→C segment, NOT at C
+    const map = new FakeMap();
+    const controller = new MapController(map);
+    controller.renderRoute({
+      ...route,
+      geometry: [
+        { lat: 39.9, lon: 116.400 },  // A: start
+        { lat: 39.9, lon: 116.4001 }, // B: 10m east
+        { lat: 39.9, lon: 116.4011 }, // C: 100m east
+        { lat: 39.9, lon: 116.4012 }, // D: 10m east
+      ],
+    });
+
+    // matched_location is slightly off the route (GPS noise)
+    // Distance-based slicing should interpolate to the correct route position
+    // NOT use the matched_location directly
+    controller.updateNavigation({
+      status: "navigating",
+      raw_location: null,
+      matched_location: { lat: 39.9001, lon: 116.4007 }, // 10m north of route, at 60m distance
+      next_maneuver: null,
+      remaining_distance_m: 60,
+      off_route: false,
+      progress: 0.5, // 60m / 120m
+    } as never);
+
+    const passedData = map.sources.get("route-passed")?.data as {
+      geometry: { coordinates: number[][] };
+    };
+    const coords = passedData.geometry.coordinates;
+
+    // Should include: A, B, and interpolated point 50m into B→C (on the route)
+    // Must NOT include the matched_location (which is off-route)
+    // Must NOT include C or D
+    expect(coords.length).toBe(3); // A, B, interpolated point
+    expect(coords[0]).toEqual([116.400, 39.9]); // A
+    expect(coords[1]).toEqual([116.4001, 39.9]); // B
+    // Interpolated point should be exactly 50m into B→C (on the route, lat=39.9)
+    // NOT the matched_location (lat=39.9001)
+    expect(coords[2][0]).toBeCloseTo(116.4006, 4); // 50m into B→C
+    expect(coords[2][1]).toBeCloseTo(39.9, 4); // ON the route, not off-route
+  });
+
+  it("handles progress=0 with empty passed geometry", () => {
+    const map = new FakeMap();
+    const controller = new MapController(map);
+    controller.renderRoute({
+      ...route,
+      geometry: [
+        { lat: 39.9, lon: 116.4 },
+        { lat: 39.9, lon: 116.41 },
+      ],
+    });
+
+    controller.updateNavigation({
+      status: "navigating",
+      raw_location: null,
+      matched_location: { lat: 39.9, lon: 116.4 },
+      next_maneuver: null,
+      remaining_distance_m: 1000,
+      off_route: false,
+      progress: 0.0,
+    } as never);
+
+    const passedData = map.sources.get("route-passed")?.data as {
+      geometry: { coordinates: number[][] };
+    };
+    // Should have minimal geometry (start point only)
+    expect(passedData.geometry.coordinates.length).toBeLessThanOrEqual(2);
+  });
+
+  it("handles progress=1 with full polyline", () => {
+    const map = new FakeMap();
+    const controller = new MapController(map);
+    controller.renderRoute({
+      ...route,
+      geometry: [
+        { lat: 39.9, lon: 116.4 },
+        { lat: 39.9, lon: 116.405 },
+        { lat: 39.9, lon: 116.41 },
+      ],
+    });
+
+    controller.updateNavigation({
+      status: "navigating",
+      raw_location: null,
+      matched_location: { lat: 39.9, lon: 116.41 },
+      next_maneuver: null,
+      remaining_distance_m: 0,
+      off_route: false,
+      progress: 1.0,
+    } as never);
+
+    const passedData = map.sources.get("route-passed")?.data as {
+      geometry: { coordinates: number[][] };
+    };
+    // Should include all route vertices
+    expect(passedData.geometry.coordinates.length).toBe(3);
+    expect(passedData.geometry.coordinates[2]).toEqual([116.41, 39.9]);
   });
 
   it("uses centralized navigation tokens above existing base-map layers", () => {

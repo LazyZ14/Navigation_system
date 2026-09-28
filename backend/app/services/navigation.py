@@ -9,6 +9,7 @@ from app.models import Coordinate, LocationFix, NavigationSession, NavigationSta
 from app.services.geometry import distance_between_m, distance_to_polyline_m, polyline_progress_fraction
 from app.services.osrm import MatchedRoad, RouteNotFound
 from app.services.replay import ReplayController
+from app.services.route_matching import RouteMatch, match_route_with_continuity
 
 
 class NearestRoadClient(Protocol):
@@ -22,6 +23,7 @@ class NavigationService:
         self._destination = destination
         self._deviation_count = 0
         self._last_replan_at = None
+        self._previous_match: RouteMatch | None = None
         self._state = NavigationState(
             status="ready",
             next_maneuver=route.maneuvers[0] if route and route.maneuvers else None,
@@ -54,10 +56,24 @@ class NavigationService:
                 self._last_replan_at = fix.timestamp
                 if replacement is not None:
                     self._route = replacement
+                    self._previous_match = None  # Reset continuity on route change
                     off_route = True
         else:
             self._deviation_count = 0
-        progress = polyline_progress_fraction(matched.location, self._route.geometry) if self._route else 0.0
+
+        # Use continuity-aware route matching if we have a route
+        if self._route:
+            route_match = match_route_with_continuity(
+                location=matched.location,
+                route=self._route.geometry,
+                previous_match=self._previous_match,
+                heading=fix.heading if hasattr(fix, 'heading') else None,
+            )
+            progress = route_match.progress
+            self._previous_match = route_match
+        else:
+            progress = 0.0
+
         next_maneuver = None
         if self._route:
             next_maneuver = next(
@@ -75,6 +91,7 @@ class NavigationService:
             next_maneuver=next_maneuver,
             remaining_distance_m=self._route.distance_m * (1 - progress) if self._route else None,
             off_route=off_route,
+            progress=progress,
         )
         return self._state
 
@@ -111,12 +128,15 @@ class NavigationSessionStore:
     async def create(
         self, origin: Coordinate, destination: Coordinate, track_id: str | None = None
     ) -> NavigationSession:
+        route = await self._client.route(origin, destination)
         points = None
-        if track_id is not None:
+        if track_id == "current-route":
+            from app.services.track_generator import generate_route_track
+            points = generate_route_track(route)
+        elif track_id is not None:
             points = self._tracks.get(track_id)
             if points is None:
                 raise ValueError("unknown synthetic track")
-        route = await self._client.route(origin, destination)
         session_id = str(uuid4())
         service = NavigationService(self._client, route, destination=destination)
         self._services[session_id] = service
