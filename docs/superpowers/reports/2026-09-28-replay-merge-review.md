@@ -9,14 +9,19 @@
 3. `da4b3bb` - feat(replay): API 支持 current-route 轨迹标识
 4. `12cc761` - feat(replay): 当前路线成为默认回放选项
 5. `5729580` - chore(frontend): 从 TypeScript 构建中排除测试文件
+6. `3e24383` - feat(route-matching): 添加 RouteMatch 和连续性感知匹配原语
+7. `e3980a6` - feat(navigation-state): 暴露 progress 字段到 API
+8. `20c0d98` - feat(navigation-service): 集成连续性感知路线匹配
+9. `05f2f2e` - feat(frontend): 使用后端 progress 进行路线切片
 
 ## Test Results
 
 ### Backend Tests
-- **Total**: 96 tests
+- **Total**: 104 tests
 - **Status**: ✅ All passed
 - **Coverage**:
   - Track generator: 16 tests (bearing, sampling, edge cases)
+  - Route matching: 8 tests (U-turn, heading disambiguation, continuity)
   - Navigation service: 14 tests (including 7 new current-route tests)
   - Navigation API: 10 tests (including 2 new current-route tests)
   - Existing tests: 56 tests (all passing, no regressions)
@@ -26,7 +31,8 @@
 - **Status**: ✅ All passed
 - **Coverage**:
   - Replay UI: 2 tests (default track, options)
-  - Existing tests: 20 tests (all passing)
+  - Map controller: 7 tests (including progress-based route slicing)
+  - Existing tests: 13 tests (all passing)
 
 ### Build
 - **TypeScript**: ✅ Compiled successfully
@@ -78,6 +84,37 @@
 | Arrival by navigation logic | ✅ | finish_replay() checks distance ≤50m |
 | Pause/resume preserved | ✅ | ReplayController unchanged |
 
+### ✅ U-turn Progress Fix (Tasks 6-9)
+
+**Problem:**
+- Backend used global nearest-point search (no continuity awareness)
+- Frontend duplicated progress computation independently
+- U-turn routes caused progress backwards jumps
+
+**Solution:**
+- **RouteMatch primitives** (commit 6): Two-phase matching with heading + spatial filtering
+  - Heading-based disambiguation for parallel segments
+  - Continuity-aware search around previous match
+  - U-turn support via heading filtering (>90° rejection)
+
+- **Progress exposure** (commit 7): Backend as single source of truth
+  - Added `progress` field to NavigationState (0.0 to 1.0)
+  - Frontend type contract updated
+
+- **Service integration** (commit 8): Continuity-aware matching in NavigationService
+  - Replaced `polyline_progress_fraction()` with `match_route_with_continuity()`
+  - Maintains `_previous_match` state across fixes
+  - Resets on route change (replan)
+
+- **Frontend slicing** (commit 9): Use authoritative backend progress
+  - Replaced independent nearest-vertex search
+  - Uses `progress * routeCoordinates.length` for slicing
+  - Eliminates backwards jumps
+
+**Test Coverage:**
+- 8 new route matching tests (U-turn, heading disambiguation, continuity)
+- All existing tests continue to pass (no regressions)
+
 ## Edge Cases Verified
 
 | Case | Test | Status |
@@ -87,6 +124,11 @@
 | Very short route (<10m) | test_very_short_route_produces_minimum_points | ✅ |
 | End heading | test_route_end_heading_copied_from_previous | ✅ |
 | Different routes → different tracks | test_different_routes_produce_different_tracks | ✅ |
+| U-turn progress continues forward | test_uturn_progress_continues_forward | ✅ |
+| Parallel segments heading disambiguation | test_parallel_segments_zero_distance_heading_disambiguation | ✅ |
+| Route crossing continuity | test_duplicate_geometry_continuity_prevents_earlier_match | ✅ |
+| Small GPS noise stability | test_small_backward_noise_progress_stable | ✅ |
+| Reroute resets progress | test_reroute_new_match_starts_fresh | ✅ |
 
 ## Smoke Test Impact
 
@@ -104,10 +146,12 @@ These are fixed regression tracks, unaffected by the new current-route feature.
 
 ## Validation Checklist
 
-- [x] Backend tests pass (96/96)
+- [x] Backend tests pass (104/104)
 - [x] Frontend tests pass (22/22)
 - [x] Frontend build succeeds
 - [x] Docker compose config valid
+- [x] U-turn regression tests pass
+- [x] Progress monotonicity verified
 - [ ] Smoke test (requires host Docker)
 - [ ] Interactive verification (requires host Docker)
 
