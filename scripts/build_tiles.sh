@@ -332,6 +332,268 @@ def build_feature_collections(input_path: Path) -> tuple[dict[str, dict[str, obj
     return layers, reports
 
 
+LABEL_ROAD_CLASSES = {"trunk", "primary", "secondary", "tertiary", "residential", "unclassified"}
+ROAD_PRIORITY = {"trunk": 1, "primary": 1, "secondary": 2, "tertiary": 2, "residential": 4, "unclassified": 4}
+INSTITUTIONAL_AMENITIES = {"school", "hospital", "theatre"}
+POI_MAPPING: dict[str, dict[str, tuple[str, int]]] = {
+    "amenity": {
+        "restaurant": ("food", 3),
+        "cafe": ("food", 3),
+        "fast_food": ("food", 3),
+        "fuel": ("transport", 3),
+        "bank": ("service", 3),
+        "pharmacy": ("service", 3),
+        "police": ("service", 3),
+    },
+    "shop": {
+        "supermarket": ("shop", 3),
+        "convenience": ("shop", 5),
+        "mall": ("shop", 3),
+        "bakery": ("shop", 5),
+        "department_store": ("shop", 3),
+        "clothes": ("shop", 5),
+        "books": ("shop", 5),
+    },
+    "tourism": {
+        "hotel": ("tourism", 3),
+        "attraction": ("tourism", 3),
+        "museum": ("tourism", 3),
+    },
+    "leisure": {
+        "park": ("other", 3),
+        "sports_centre": ("other", 3),
+        "stadium": ("other", 3),
+    },
+    "office": {
+        "government": ("other", 3),
+    },
+    "public_transport": {
+        "station": ("transport", 3),
+    },
+}
+LABEL_LAYER_NAMES = ("road-labels", "place-labels", "poi")
+
+
+def _road_label_feature(coordinates: list[list[float]], road_class: str, name: str) -> dict[str, object]:
+    return feature("LineString", coordinates, {"name": name, "class": road_class, "priority": ROAD_PRIORITY[road_class]})
+
+
+def _place_label_point(coordinates: list[float], class_name: str, name: str) -> dict[str, object]:
+    return feature("Point", coordinates, {"name": name, "class": class_name, "priority": 2})
+
+
+def _poi_feature(coordinates: list[float], category: str, subclass: str, priority: int) -> dict[str, object]:
+    return feature("Point", coordinates, {"name": "", "category": category, "subclass": subclass, "priority": priority})
+
+
+def _poi_identity(name: str, category: str, subclass: str, coordinates: tuple[float, float]) -> tuple[str, str, str, float, float]:
+    return (name, category, subclass, coordinates[0], coordinates[1])
+
+
+def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[str, object]], list[str]]:
+    root = ElementTree.parse(input_path).getroot()
+    nodes: dict[str, GeoJsonPosition] = {
+        node.attrib["id"]: (float(node.attrib["lon"]), float(node.attrib["lat"]))
+        for node in root.findall("node")
+    }
+    ways = {
+        way.attrib["id"]: ([node.attrib["ref"] for node in way.findall("nd")], tags(way))
+        for way in root.findall("way")
+    }
+    labels: dict[str, dict[str, object]] = {name: {"type": "FeatureCollection", "features": []} for name in LABEL_LAYER_NAMES}
+    reports: list[str] = []
+    suppressed_way_ids: set[str] = set()
+    institutional_entities: set[tuple[str, str]] = set()
+    seen_road_labels: set[tuple[str, str, tuple[tuple[float, float], ...]]] = set()
+    seen_places: set[tuple[str, str, float, float]] = set()
+    seen_pois: set[tuple[str, str, str, float, float]] = set()
+
+    for relation in root.findall("relation"):
+        relation_tags = tags(relation_tags_dict := tags(relation))
+        if relation_tags.get("type") != "multipolygon":
+            continue
+        relation_id = relation.attrib["id"]
+        candidate_member_ids = [member.attrib["ref"] for member in relation.findall("member") if member.attrib.get("type") == "way"]
+        geometry, _, error = multipolygon_geometry(relation, ways, nodes)
+        suppressed_way_ids.update(candidate_member_ids)
+        if error is not None:
+            continue
+        assert geometry is not None
+        label_name = select_label_name(relation_tags)
+        if label_name is None:
+            continue
+        building_tag = relation_tags.get("building")
+        place_tag = relation_tags.get("place")
+        amenity_tag = relation_tags.get("amenity")
+        if building_tag is not None:
+            identity = ("relation", relation_id)
+            if ("place", identity) not in {(p[0], p[1]) for p in []}:
+                anchor, reason = representative_point(geometry)
+                if anchor is not None:
+                    place_key = (label_name, "building", anchor[0], anchor[1])
+                    if place_key not in seen_places:
+                        seen_places.add(place_key)
+                        labels["place-labels"]["features"].append(_place_label_point(anchor, "building", label_name))
+                        institutional_entities.add(identity)
+            continue
+        if place_tag is not None:
+            anchor, reason = representative_point(geometry)
+            if anchor is not None:
+                place_key = (label_name, "place", anchor[0], anchor[1])
+                if place_key not in seen_places:
+                    seen_places.add(place_key)
+                    labels["place-labels"]["features"].append(_place_label_point(anchor, "place", label_name))
+            continue
+        if amenity_tag in INSTITUTIONAL_AMENITIES:
+            anchor, reason = representative_point(geometry)
+            if anchor is not None:
+                identity = ("relation", relation_id)
+                place_key = (label_name, "amenity", anchor[0], anchor[1])
+                if place_key not in seen_places:
+                    seen_places.add(place_key)
+                    labels["place-labels"]["features"].append(_place_label_point(anchor, "amenity", label_name))
+                    institutional_entities.add(identity)
+            continue
+        poi_lookup = POI_MAPPING.get("amenity", {}) if amenity_tag else {}
+        if amenity_tag and amenity_tag in poi_lookup:
+            subclass = amenity_tag
+        else:
+            subclass = None
+            for key in POI_MAPPING:
+                if relation_tags.get(key) in POI_MAPPING[key]:
+                    subclass = relation_tags[key]
+                    poi_lookup = POI_MAPPING[key]
+                    break
+        if subclass and subclass in poi_lookup:
+            category, priority = poi_lookup[subclass]
+            anchor, reason = representative_point(geometry)
+            if anchor is not None:
+                poi_key = _poi_identity(label_name, category, subclass, (anchor[0], anchor[1]))
+                if poi_key not in seen_pois:
+                    seen_pois.add(poi_key)
+                    poi_feature = _poi_feature(anchor, category, subclass, priority)
+                    poi_feature["properties"]["name"] = label_name
+                    labels["poi"]["features"].append(poi_feature)
+
+    for way_id, (refs, way_tags) in ways.items():
+        label_name = select_label_name(way_tags)
+        road_class = way_tags.get("highway")
+        coordinates = coordinates_for(refs, nodes)
+        if road_class in LABEL_ROAD_CLASSES and label_name is not None and coordinates is not None and len(coordinates) >= 2:
+            coord_tuple = tuple((c[0], c[1]) for c in coordinates)
+            road_key = (label_name, road_class, coord_tuple)
+            if road_key not in seen_road_labels:
+                seen_road_labels.add(road_key)
+                labels["road-labels"]["features"].append(_road_label_feature(coordinates, road_class, label_name))
+
+        if way_id in suppressed_way_ids:
+            continue
+
+        building_tag = way_tags.get("building")
+        place_tag = way_tags.get("place")
+        amenity_tag = way_tags.get("amenity")
+
+        if building_tag is not None and label_name is not None and coordinates is not None and len(refs) >= 4 and refs[0] == refs[-1]:
+            geometry = {"type": "Polygon", "coordinates": [coordinates]}
+            anchor, reason = representative_point(geometry)
+            if anchor is not None:
+                place_key = (label_name, "building", anchor[0], anchor[1])
+                if place_key not in seen_places:
+                    seen_places.add(place_key)
+                    labels["place-labels"]["features"].append(_place_label_point(anchor, "building", label_name))
+            continue
+
+        if place_tag is not None and label_name is not None and coordinates is not None and len(refs) >= 4 and refs[0] == refs[-1]:
+            geometry = {"type": "Polygon", "coordinates": [coordinates]}
+            anchor, reason = representative_point(geometry)
+            if anchor is not None:
+                place_key = (label_name, "place", anchor[0], anchor[1])
+                if place_key not in seen_places:
+                    seen_places.add(place_key)
+                    labels["place-labels"]["features"].append(_place_label_point(anchor, "place", label_name))
+            continue
+
+        if amenity_tag in INSTITUTIONAL_AMENITIES and label_name is not None and coordinates is not None and len(refs) >= 4 and refs[0] == refs[-1]:
+            geometry = {"type": "Polygon", "coordinates": [coordinates]}
+            anchor, reason = representative_point(geometry)
+            if anchor is not None:
+                identity = ("way", way_id)
+                place_key = (label_name, "amenity", anchor[0], anchor[1])
+                if place_key not in seen_places:
+                    seen_places.add(place_key)
+                    labels["place-labels"]["features"].append(_place_label_point(anchor, "amenity", label_name))
+                    institutional_entities.add(identity)
+            continue
+
+        poi_category = None
+        poi_subclass = None
+        poi_priority = 3
+        for osm_key, subclass_map in POI_MAPPING.items():
+            value = way_tags.get(osm_key)
+            if value in subclass_map:
+                poi_category, poi_priority = subclass_map[value]
+                poi_subclass = value
+                break
+        if poi_category and label_name is not None and coordinates is not None and len(refs) >= 4 and refs[0] == refs[-1]:
+            identity = ("way", way_id)
+            if identity in institutional_entities:
+                continue
+            geometry = {"type": "Polygon", "coordinates": [coordinates]}
+            anchor, reason = representative_point(geometry)
+            if anchor is not None:
+                poi_key = _poi_identity(label_name, poi_category, poi_subclass, (anchor[0], anchor[1]))
+                if poi_key not in seen_pois:
+                    seen_pois.add(poi_key)
+                    poi_feature = _poi_feature(anchor, poi_category, poi_subclass, poi_priority)
+                    poi_feature["properties"]["name"] = label_name
+                    labels["poi"]["features"].append(poi_feature)
+
+    for node in root.findall("node"):
+        node_id = node.attrib["id"]
+        node_tags = tags(node)
+        label_name = select_label_name(node_tags)
+        if label_name is None:
+            continue
+        coordinate = nodes[node_id]
+        amenity_tag = node_tags.get("amenity")
+        place_tag = node_tags.get("place")
+        if amenity_tag in INSTITUTIONAL_AMENITIES:
+            identity = ("node", node_id)
+            place_key = (label_name, "amenity", coordinate[0], coordinate[1])
+            if place_key not in seen_places:
+                seen_places.add(place_key)
+                labels["place-labels"]["features"].append(_place_label_point(list(coordinate), "amenity", label_name))
+                institutional_entities.add(identity)
+            continue
+        if place_tag is not None:
+            place_key = (label_name, "place", coordinate[0], coordinate[1])
+            if place_key not in seen_places:
+                seen_places.add(place_key)
+                labels["place-labels"]["features"].append(_place_label_point(list(coordinate), "place", label_name))
+            continue
+        poi_category = None
+        poi_subclass = None
+        poi_priority = 3
+        for osm_key, subclass_map in POI_MAPPING.items():
+            value = node_tags.get(osm_key)
+            if value in subclass_map:
+                poi_category, poi_priority = subclass_map[value]
+                poi_subclass = value
+                break
+        if poi_category:
+            identity = ("node", node_id)
+            if identity in institutional_entities:
+                continue
+            poi_key = _poi_identity(label_name, poi_category, poi_subclass, coordinate)
+            if poi_key not in seen_pois:
+                seen_pois.add(poi_key)
+                poi_feature = _poi_feature(list(coordinate), poi_category, poi_subclass, poi_priority)
+                poi_feature["properties"]["name"] = label_name
+                labels["poi"]["features"].append(poi_feature)
+
+    return labels, reports
+
+
 def write_feature_collections(feature_collections: dict[str, dict[str, object]], output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "map-roads.geojson").unlink(missing_ok=True)
