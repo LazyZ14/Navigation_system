@@ -409,7 +409,7 @@ def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[st
     seen_pois: set[tuple[str, str, str, float, float]] = set()
 
     for relation in root.findall("relation"):
-        relation_tags = tags(relation_tags_dict := tags(relation))
+        relation_tags = tags(relation)
         if relation_tags.get("type") != "multipolygon":
             continue
         relation_id = relation.attrib["id"]
@@ -598,7 +598,9 @@ def write_feature_collections(feature_collections: dict[str, dict[str, object]],
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "map-roads.geojson").unlink(missing_ok=True)
     outputs: list[Path] = []
-    for name in LAYER_NAMES:
+    for name in LAYER_NAMES + LABEL_LAYER_NAMES:
+        if name not in feature_collections:
+            continue
         output = output_dir / f"{name}.geojson"
         output.write_text(json.dumps(feature_collections[name], ensure_ascii=False))
         outputs.append(output)
@@ -612,9 +614,13 @@ def main() -> None:
     if args.input.suffix != ".osm" or not args.input.is_file():
         parser.error("input must be an existing .osm file")
     project_root = Path(__file__).parents[1]
-    layers, reports = build_feature_collections(args.input)
-    outputs = write_feature_collections(layers, project_root / "frontend" / "public" / "generated")
-    for report in reports:
+    layers, geometry_reports = build_feature_collections(args.input)
+    labels, label_reports = build_label_feature_collections(args.input)
+    combined: dict[str, dict[str, object]] = {}
+    combined.update(layers)
+    combined.update(labels)
+    outputs = write_feature_collections(combined, project_root / "frontend" / "public" / "generated")
+    for report in geometry_reports + label_reports:
         print(report, file=sys.stderr)
     write_build_metadata(
         input_path=args.input,
@@ -623,7 +629,7 @@ def main() -> None:
         tool_version=f"Python {platform.python_version()} xml.etree.ElementTree",
         output=",".join(str(output.relative_to(project_root)) for output in outputs),
     )
-    print(f"wrote {len(outputs)} thematic GeoJSON files")
+    print(f"wrote {len(outputs)} offline map files")
 
 
 if __name__ == "__main__":

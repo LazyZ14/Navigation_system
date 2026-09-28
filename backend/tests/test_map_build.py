@@ -209,20 +209,28 @@ def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_pa
         text=True,
     )
 
-    assert result.stdout == "wrote 5 thematic GeoJSON files\n"
-    assert {path.name for path in generated.iterdir()} == {
-        "roads.geojson", "buildings.geojson", "water.geojson", "green.geojson", "landuse.geojson"
+    assert result.stdout == "wrote 8 offline map files\n"
+    expected_files = {
+        "roads.geojson", "buildings.geojson", "water.geojson", "green.geojson", "landuse.geojson",
+        "road-labels.geojson", "place-labels.geojson", "poi.geojson",
     }
-    for name in ("roads", "buildings", "water", "green", "landuse"):
-        collection = json.loads((generated / f"{name}.geojson").read_text())
+    assert {path.name for path in generated.iterdir()} == expected_files
+    for name in expected_files:
+        collection = json.loads((generated / name).read_text())
         assert collection["type"] == "FeatureCollection"
         assert isinstance(collection["features"], list)
     assert json.loads((generated / "landuse.geojson").read_text())["features"] == []
+    road_labels = json.loads((generated / "road-labels.geojson").read_text())
+    assert any(f["properties"]["name"] == "Demo Road" for f in road_labels["features"])
 
     metadata = json.loads((project / "data" / "metadata" / "map.osm-maplibre-thematic-geojson-build.json").read_text())
     assert metadata["artifact"] == "maplibre-thematic-geojson"
+    ordered_names = (
+        "roads", "buildings", "water", "green", "landuse",
+        "road-labels", "place-labels", "poi",
+    )
     assert metadata["output"] == ",".join(
-        f"frontend/public/generated/{name}.geojson" for name in ("roads", "buildings", "water", "green", "landuse")
+        f"frontend/public/generated/{name}.geojson" for name in ordered_names
     )
 
 
