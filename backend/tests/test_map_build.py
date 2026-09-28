@@ -1,5 +1,8 @@
 import importlib.machinery
 import importlib.util
+import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -150,3 +153,38 @@ def test_suppresses_tagged_member_way_when_its_relation_fails(tmp_path: Path):
 
     assert all(feature["geometry"]["coordinates"][0][0] != [30.0, 30.0] for feature in layers["water"]["features"])
     assert reports[-1] == "relation 500 skipped: missing way member 9999"
+
+
+def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_path: Path):
+    project = tmp_path / "project"
+    scripts = project / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(SCRIPTS / "build_tiles.sh", scripts / "build_tiles.sh")
+    shutil.copy2(SCRIPTS / "verify_data.py", scripts / "verify_data.py")
+    source = project / "data" / "raw" / "map.osm"
+    source.parent.mkdir(parents=True)
+    write_osm(source)
+
+    result = subprocess.run(
+        [sys.executable, str(scripts / "build_tiles.sh"), str(source)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    generated = project / "frontend" / "public" / "generated"
+    assert result.stdout == "wrote 5 thematic GeoJSON files\n"
+    assert {path.name for path in generated.iterdir()} == {
+        "roads.geojson", "buildings.geojson", "water.geojson", "green.geojson", "landuse.geojson"
+    }
+    for name in ("roads", "buildings", "water", "green", "landuse"):
+        collection = json.loads((generated / f"{name}.geojson").read_text())
+        assert collection["type"] == "FeatureCollection"
+        assert isinstance(collection["features"], list)
+    assert json.loads((generated / "landuse.geojson").read_text())["features"] == []
+
+    metadata = json.loads((project / "data" / "metadata" / "map.osm-maplibre-thematic-geojson-build.json").read_text())
+    assert metadata["artifact"] == "maplibre-thematic-geojson"
+    assert metadata["output"] == ",".join(
+        f"frontend/public/generated/{name}.geojson" for name in ("roads", "buildings", "water", "green", "landuse")
+    )

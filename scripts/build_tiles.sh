@@ -207,33 +207,19 @@ def main() -> None:
     args = parser.parse_args()
     if args.input.suffix != ".osm" or not args.input.is_file():
         parser.error("input must be an existing .osm file")
-    root = ElementTree.parse(args.input).getroot()
-    nodes: dict[str, GeoJsonPosition] = {
-        node.attrib["id"]: (float(node.attrib["lon"]), float(node.attrib["lat"]))
-        for node in root.findall("node")
-    }
-    features: list[dict[str, object]] = []
-    for way in root.findall("way"):
-        way_tags = tags(way)
-        road_class = way_tags.get("highway")
-        if road_class is None:
-            continue
-        coordinates = coordinates_for([node.attrib["ref"] for node in way.findall("nd")], nodes)
-        if coordinates is None or len(coordinates) < 2:
-            continue
-        features.append(feature("LineString", coordinates, {"class": road_class, "name": way_tags.get("name", "")}))
     project_root = Path(__file__).parents[1]
-    output = project_root / "frontend" / "public" / "generated" / "map-roads.geojson"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False))
+    layers, reports = build_feature_collections(args.input)
+    outputs = write_feature_collections(layers, project_root / "frontend" / "public" / "generated")
+    for report in reports:
+        print(report, file=sys.stderr)
     write_build_metadata(
         input_path=args.input,
         command=shlex.join(sys.argv),
-        artifact="maplibre-road-geojson",
+        artifact="maplibre-thematic-geojson",
         tool_version=f"Python {platform.python_version()} xml.etree.ElementTree",
-        output=str(output.relative_to(project_root)),
+        output=",".join(str(output.relative_to(project_root)) for output in outputs),
     )
-    print("wrote {} road features to {}".format(len(features), output))
+    print(f"wrote {len(outputs)} thematic GeoJSON files")
 
 
 if __name__ == "__main__":
