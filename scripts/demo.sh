@@ -7,7 +7,7 @@ cd "$project_root"
 docker compose up -d --build
 
 thematic_map_data_ready() {
-  for map_layer in roads buildings water green landuse; do
+  for map_layer in roads buildings water green landuse road-labels place-labels poi; do
     curl --max-time 3 --fail --silent "http://127.0.0.1:5173/generated/${map_layer}.geojson" >/dev/null || return 1
   done
 }

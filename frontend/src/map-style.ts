@@ -5,6 +5,12 @@ export const MAP_VISUAL_TOKENS = {
   green: { park: "#D8EACB", forest: "#BFD9B6", grass: "#E5F0DB" },
   landuse: { fill: "#EDF1F4" },
   roads: { casing: "#C3CCD5", surface: "#FAFBFC" },
+  labels: {
+    text: "#475569",
+    halo: "#FFFFFF",
+    placeText: "#334155",
+    poiText: "#64748B",
+  },
   navigation: {
     routeCasing: "#172554",
     routeActive: "#2F80ED",
@@ -20,13 +26,15 @@ export const ROAD_CLASS_GROUPS = {
 } as const;
 
 type Expression = unknown[];
-type SourceName = "roads" | "buildings" | "water" | "green" | "landuse";
+type SourceName = "roads" | "buildings" | "water" | "green" | "landuse" | "road-labels" | "place-labels" | "poi";
 type FeatureCollection = { type: "FeatureCollection"; features: unknown[] };
 
 export type BaseMapLike = {
   addSource: (id: string, source: { type: "geojson"; data: FeatureCollection }) => void;
   addLayer: (layer: { id: string; [key: string]: unknown }) => void;
 };
+
+const LOCAL_FONT_STACK = "PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif";
 
 const ROAD_WIDTHS: Record<string, [number, number, number]> = {
   motorway: [7, 13, 20], motorway_link: [6, 11, 17],
@@ -74,6 +82,132 @@ function roadLayers(group: "local" | "arterial"): Array<{ id: string; [key: stri
   ];
 }
 
+function labelLayers(): Array<{ id: string; [key: string]: unknown }> {
+  const baseLayout = {
+    "text-font": [LOCAL_FONT_STACK],
+    "text-allow-overlap": false,
+    "text-ignore-placement": false,
+  };
+  return [
+    {
+      id: "road-label-major",
+      type: "symbol",
+      source: "road-labels",
+      minzoom: 11,
+      filter: ["match", ["get", "class"], ["trunk", "primary"], true, false],
+      layout: {
+        ...baseLayout,
+        "symbol-placement": "line",
+        "symbol-spacing": 300,
+        "text-field": ["get", "name"],
+        "text-size": 12,
+        "text-rotation-alignment": "map",
+        "symbol-sort-key": ["get", "priority"],
+      },
+      paint: {
+        "text-color": MAP_VISUAL_TOKENS.labels.text,
+        "text-halo-color": MAP_VISUAL_TOKENS.labels.halo,
+        "text-halo-width": 1.5,
+      },
+    },
+    {
+      id: "road-label-secondary",
+      type: "symbol",
+      source: "road-labels",
+      minzoom: 13,
+      filter: ["match", ["get", "class"], ["secondary", "tertiary"], true, false],
+      layout: {
+        ...baseLayout,
+        "symbol-placement": "line",
+        "symbol-spacing": 250,
+        "text-field": ["get", "name"],
+        "text-size": 11,
+        "text-rotation-alignment": "map",
+        "symbol-sort-key": ["get", "priority"],
+      },
+      paint: {
+        "text-color": MAP_VISUAL_TOKENS.labels.text,
+        "text-halo-color": MAP_VISUAL_TOKENS.labels.halo,
+        "text-halo-width": 1.2,
+      },
+    },
+    {
+      id: "place-label-important",
+      type: "symbol",
+      source: "place-labels",
+      minzoom: 13,
+      layout: {
+        ...baseLayout,
+        "text-field": ["get", "name"],
+        "text-size": 12,
+        "symbol-sort-key": ["get", "priority"],
+      },
+      paint: {
+        "text-color": MAP_VISUAL_TOKENS.labels.placeText,
+        "text-halo-color": MAP_VISUAL_TOKENS.labels.halo,
+        "text-halo-width": 1.5,
+      },
+    },
+    {
+      id: "road-label-local",
+      type: "symbol",
+      source: "road-labels",
+      minzoom: 16,
+      filter: ["match", ["get", "class"], ["residential", "unclassified"], true, false],
+      layout: {
+        ...baseLayout,
+        "symbol-placement": "line",
+        "symbol-spacing": 200,
+        "text-field": ["get", "name"],
+        "text-size": 10,
+        "text-rotation-alignment": "map",
+        "symbol-sort-key": ["get", "priority"],
+      },
+      paint: {
+        "text-color": MAP_VISUAL_TOKENS.labels.text,
+        "text-halo-color": MAP_VISUAL_TOKENS.labels.halo,
+        "text-halo-width": 1,
+      },
+    },
+    {
+      id: "poi-label-important",
+      type: "symbol",
+      source: "poi",
+      minzoom: 15,
+      filter: ["<=", ["get", "priority"], 3],
+      layout: {
+        ...baseLayout,
+        "text-field": ["get", "name"],
+        "text-size": 11,
+        "symbol-sort-key": ["get", "priority"],
+      },
+      paint: {
+        "text-color": MAP_VISUAL_TOKENS.labels.poiText,
+        "text-halo-color": MAP_VISUAL_TOKENS.labels.halo,
+        "text-halo-width": 1.2,
+      },
+    },
+    {
+      id: "poi-label-dense",
+      type: "symbol",
+      source: "poi",
+      minzoom: 17,
+      filter: [">", ["get", "priority"], 3],
+      layout: {
+        ...baseLayout,
+        "text-field": ["get", "name"],
+        "text-size": 10,
+        "symbol-sort-key": ["get", "priority"],
+      },
+      paint: {
+        "text-color": MAP_VISUAL_TOKENS.labels.poiText,
+        "text-halo-color": MAP_VISUAL_TOKENS.labels.halo,
+        "text-halo-width": 1,
+      },
+    },
+  ];
+}
+
 export function registerBaseMap(map: BaseMapLike, dataBySource: Record<SourceName, FeatureCollection>): void {
   (Object.keys(dataBySource) as SourceName[]).forEach((sourceName) => {
     map.addSource(sourceName, { type: "geojson", data: dataBySource[sourceName] });
@@ -86,6 +220,7 @@ export function registerBaseMap(map: BaseMapLike, dataBySource: Record<SourceNam
     { id: "buildings-fill", type: "fill", source: "buildings", paint: { "fill-color": MAP_VISUAL_TOKENS.buildings.fill, "fill-outline-color": MAP_VISUAL_TOKENS.buildings.outline } },
     ...roadLayers("local"),
     ...roadLayers("arterial"),
+    ...labelLayers(),
   ];
   layers.forEach((layer) => map.addLayer(layer));
 }

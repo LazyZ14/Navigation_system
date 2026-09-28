@@ -209,20 +209,28 @@ def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_pa
         text=True,
     )
 
-    assert result.stdout == "wrote 5 thematic GeoJSON files\n"
-    assert {path.name for path in generated.iterdir()} == {
-        "roads.geojson", "buildings.geojson", "water.geojson", "green.geojson", "landuse.geojson"
+    assert result.stdout == "wrote 8 offline map files\n"
+    expected_files = {
+        "roads.geojson", "buildings.geojson", "water.geojson", "green.geojson", "landuse.geojson",
+        "road-labels.geojson", "place-labels.geojson", "poi.geojson",
     }
-    for name in ("roads", "buildings", "water", "green", "landuse"):
-        collection = json.loads((generated / f"{name}.geojson").read_text())
+    assert {path.name for path in generated.iterdir()} == expected_files
+    for name in expected_files:
+        collection = json.loads((generated / name).read_text())
         assert collection["type"] == "FeatureCollection"
         assert isinstance(collection["features"], list)
     assert json.loads((generated / "landuse.geojson").read_text())["features"] == []
+    road_labels = json.loads((generated / "road-labels.geojson").read_text())
+    assert any(f["properties"]["name"] == "Demo Road" for f in road_labels["features"])
 
     metadata = json.loads((project / "data" / "metadata" / "map.osm-maplibre-thematic-geojson-build.json").read_text())
     assert metadata["artifact"] == "maplibre-thematic-geojson"
+    ordered_names = (
+        "roads", "buildings", "water", "green", "landuse",
+        "road-labels", "place-labels", "poi",
+    )
     assert metadata["output"] == ",".join(
-        f"frontend/public/generated/{name}.geojson" for name in ("roads", "buildings", "water", "green", "landuse")
+        f"frontend/public/generated/{name}.geojson" for name in ordered_names
     )
 
 
@@ -243,3 +251,239 @@ def test_cli_runs_with_the_project_python3_entrypoint(tmp_path: Path):
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_select_label_name_prefers_name_zh():
+    assert build_tiles.select_label_name({"name:zh": "前门东大街", "name": "Qianmen", "name:en": "Qianmen St"}) == "前门东大街"
+
+
+def test_select_label_name_falls_back_to_name():
+    assert build_tiles.select_label_name({"name": "Demo Road"}) == "Demo Road"
+
+
+def test_select_label_name_falls_back_to_name_en():
+    assert build_tiles.select_label_name({"name:en": "Main Street"}) == "Main Street"
+
+
+def test_select_label_name_rejects_blank_values():
+    assert build_tiles.select_label_name({"name:zh": "  ", "name": "", "name:en": "  "}) is None
+
+
+def test_select_label_name_returns_none_without_any_name():
+    assert build_tiles.select_label_name({"highway": "primary"}) is None
+
+
+def test_representative_point_of_convex_polygon_uses_widest_interior_span():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is not None
+    assert reason is None
+    assert build_tiles.point_in_ring(anchor, geometry["coordinates"][0])
+
+
+def test_representative_point_of_concave_polygon_avoids_exterior_centroid():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [10.0, 0.0], [10.0, 2.0], [2.0, 2.0], [2.0, 10.0], [0.0, 10.0], [0.0, 0.0]]],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is not None
+    assert reason is None
+    assert build_tiles.point_in_ring(anchor, geometry["coordinates"][0])
+
+
+def test_representative_point_of_polygon_with_hole_stays_outside_hole():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [
+            [[0.0, 0.0], [20.0, 0.0], [20.0, 20.0], [0.0, 20.0], [0.0, 0.0]],
+            [[8.0, 8.0], [12.0, 8.0], [12.0, 12.0], [8.0, 12.0], [8.0, 8.0]],
+        ],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is not None
+    assert reason is None
+    assert build_tiles.point_in_ring(anchor, geometry["coordinates"][0])
+    assert not build_tiles.point_in_ring(anchor, geometry["coordinates"][1])
+
+
+def test_representative_point_of_multipolygon_uses_widest_component():
+    geometry = {
+        "type": "MultiPolygon",
+        "coordinates": [
+            [[[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0], [0.0, 0.0]]],
+            [[[5.0, 0.0], [20.0, 0.0], [20.0, 20.0], [5.0, 20.0], [5.0, 0.0]]],
+        ],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is not None
+    assert reason is None
+    inside_count = sum(
+        1 for polygon in geometry["coordinates"] if build_tiles.point_in_ring(anchor, polygon[0])
+    )
+    assert inside_count == 1
+    assert not build_tiles._point_in_any_hole(anchor, geometry["coordinates"])
+
+
+def test_representative_point_of_degenerate_polygon_returns_no_anchor():
+    geometry = {"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [0.0, 0.0]]]}
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is None
+    assert reason == "no reliable interior anchor"
+
+
+def test_representative_point_of_very_narrow_polygon_returns_no_anchor():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [100.0, 0.0], [100.0, 0.0], [0.0, 0.0]]],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is None
+    assert reason == "no reliable interior anchor"
+
+
+LABEL_OSM = """<osm>
+  <node id="1" lat="0" lon="0"/>
+  <node id="2" lat="0" lon="1"/>
+  <node id="3" lat="0" lon="2"/>
+  <node id="4" lat="1" lon="0"/>
+  <node id="5" lat="1" lon="1"/>
+  <node id="6" lat="1" lon="2"/>
+  <node id="7" lat="2" lon="0"/>
+  <node id="8" lat="2" lon="1"/>
+  <node id="9" lat="2" lon="2"/>
+  <node id="10" lat="0.5" lon="0.5"/>
+  <node id="11" lat="3" lon="3"/>
+  <node id="12" lat="3" lon="4"/>
+  <node id="13" lat="4" lon="4"/>
+  <node id="14" lat="4" lon="3"/>
+  <node id="15" lat="5" lon="5"/>
+  <node id="20" lat="10" lon="10"/>
+  <node id="21" lat="10" lon="11"/>
+  <node id="22" lat="11" lon="11"/>
+  <node id="23" lat="11" lon="10"/>
+  <node id="30" lat="20" lon="20"/>
+  <way id="100"><nd ref="1"/><nd ref="2"/><nd ref="3"/><tag k="highway" v="primary"/><tag k="name" v="长安街"/></way>
+  <way id="101"><nd ref="4"/><nd ref="5"/><nd ref="6"/><tag k="highway" v="primary"/></way>
+  <way id="102"><nd ref="7"/><nd ref="8"/><nd ref="9"/><tag k="highway" v="residential"/><tag k="name" v="胡同"/></way>
+  <way id="200"><nd ref="11"/><nd ref="12"/><nd ref="13"/><nd ref="14"/><nd ref="11"/><tag k="building" v="yes"/><tag k="name" v="图书馆"/></way>
+  <way id="201"><nd ref="20"/><nd ref="21"/><nd ref="22"/><nd ref="23"/><nd ref="20"/><tag k="shop" v="supermarket"/><tag k="name" v="超市"/></way>
+  <node id="300" lat="15" lon="15"><tag k="amenity" v="restaurant"/><tag k="name" v="餐厅"/></node>
+  <node id="301" lat="15" lon="15"><tag k="amenity" v="restaurant"/><tag k="name" v="餐厅"/></node>
+  <node id="400" lat="25" lon="25"><tag k="amenity" v="school"/><tag k="name" v="学校"/></node>
+  <node id="500" lat="30" lon="30"><tag k="place" v="quarter"/><tag k="name" v="社区"/></node>
+</osm>"""
+
+
+def build_label_fixture(tmp_path: Path):
+    source = tmp_path / "labels.osm"
+    source.write_text(LABEL_OSM)
+    return build_tiles.build_label_feature_collections(source)
+
+
+def test_label_builders_emit_road_labels_for_named_roads(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    road_labels = labels["road-labels"]["features"]
+    names = [f["properties"]["name"] for f in road_labels]
+    assert "长安街" in names
+    assert "胡同" in names
+    assert all(f["geometry"]["type"] == "LineString" for f in road_labels)
+
+
+def test_label_builders_exclude_unnamed_roads(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    road_labels = labels["road-labels"]["features"]
+    for feature in road_labels:
+        assert feature["properties"]["name"]
+
+
+def test_label_builders_assign_major_road_priority(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    road_labels = labels["road-labels"]["features"]
+    major = [f for f in road_labels if f["properties"]["class"] == "primary"]
+    assert all(f["properties"]["priority"] == 1 for f in major)
+
+
+def test_label_builders_assign_residential_priority(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    road_labels = labels["road-labels"]["features"]
+    residential = [f for f in road_labels if f["properties"]["class"] == "residential"]
+    assert all(f["properties"]["priority"] == 4 for f in residential)
+
+
+def test_label_builders_emit_building_place_labels(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    place_labels = labels["place-labels"]["features"]
+    names = [f["properties"]["name"] for f in place_labels]
+    assert "图书馆" in names
+    building = [f for f in place_labels if f["properties"]["class"] == "building"]
+    assert any(f["properties"]["name"] == "图书馆" for f in building)
+
+
+def test_label_builders_emit_place_node_labels(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    place_labels = labels["place-labels"]["features"]
+    assert any(f["properties"]["name"] == "社区" and f["properties"]["class"] == "place" for f in place_labels)
+
+
+def test_label_builders_emit_institutional_amenity_as_place(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    place_labels = labels["place-labels"]["features"]
+    assert any(f["properties"]["name"] == "学校" and f["properties"]["class"] == "amenity" for f in place_labels)
+
+
+def test_label_builders_emit_poi_for_restaurant_node(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    poi = labels["poi"]["features"]
+    restaurants = [f for f in poi if f["properties"]["category"] == "food"]
+    assert len(restaurants) == 1
+    assert restaurants[0]["properties"]["subclass"] == "restaurant"
+    assert restaurants[0]["properties"]["priority"] == 3
+    assert restaurants[0]["geometry"]["type"] == "Point"
+    assert restaurants[0]["geometry"]["coordinates"] == [15.0, 15.0]
+
+
+def test_label_builders_emit_poi_for_supermarket_polygon(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    poi = labels["poi"]["features"]
+    shops = [f for f in poi if f["properties"]["category"] == "shop"]
+    assert len(shops) == 1
+    assert shops[0]["properties"]["subclass"] == "supermarket"
+    assert shops[0]["geometry"]["type"] == "Point"
+
+
+def test_label_builders_deduplicate_exact_poi(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    poi = labels["poi"]["features"]
+    restaurants = [f for f in poi if f["properties"]["subclass"] == "restaurant"]
+    assert len(restaurants) == 1
+
+
+def test_label_builders_exclude_institutional_amenity_from_poi(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    poi = labels["poi"]["features"]
+    assert not any(f["properties"]["name"] == "学校" for f in poi)
+    place_labels = labels["place-labels"]["features"]
+    assert any(f["properties"]["name"] == "学校" for f in place_labels)
+
+
+def test_label_builders_use_lon_lat_coordinates(tmp_path: Path):
+    labels, _ = build_label_fixture(tmp_path)
+    for feature in labels["poi"]["features"]:
+        coords = feature["geometry"]["coordinates"]
+        assert len(coords) == 2
+        assert isinstance(coords[0], float)
+        assert isinstance(coords[1], float)
+
+
+def test_label_builders_return_valid_empty_collections_for_osm_without_labels(tmp_path: Path):
+    source = tmp_path / "empty.osm"
+    source.write_text("<osm><node id='1' lat='0' lon='0'/></osm>")
+    labels, reports = build_tiles.build_label_feature_collections(source)
+    for name in ("road-labels", "place-labels", "poi"):
+        collection = labels[name]
+        assert collection["type"] == "FeatureCollection"
+        assert collection["features"] == []

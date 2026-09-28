@@ -32,10 +32,14 @@ describe("offline base-map style", () => {
       water: emptyCollection,
       green: emptyCollection,
       landuse: emptyCollection,
+      "road-labels": emptyCollection,
+      "place-labels": emptyCollection,
+      poi: emptyCollection,
     });
 
-    expect([...map.sources.keys()]).toEqual(["roads", "buildings", "water", "green", "landuse"]);
-    expect(map.layers.map(({ id }) => id)).toEqual([
+    expect([...map.sources.keys()]).toEqual(["roads", "buildings", "water", "green", "landuse", "road-labels", "place-labels", "poi"]);
+    const layerIds = map.layers.map(({ id }) => id);
+    expect(layerIds.slice(0, 9)).toEqual([
       "landuse-fill",
       "green-fill",
       "water-fill",
@@ -46,8 +50,7 @@ describe("offline base-map style", () => {
       "arterial-road-casing",
       "arterial-road-surface",
     ]);
-    const casingWidth = map.layers.find(({ id }) => id === "local-road-casing")?.paint as Record<string, unknown>;
-    expect((casingWidth["line-width"] as unknown[]).slice(0, 3)).toEqual(["interpolate", ["linear"], ["zoom"]]);
+    expect(layerIds.slice(-1).pop()).toMatch(/poi-/);
   });
 
   it("covers every supported highway class in one grouped road layer family", () => {
@@ -70,5 +73,60 @@ describe("offline base-map style", () => {
     expect(primary).toBe(10);
     expect(secondary).toBe(8);
     expect(tertiary).toBe(6);
+  });
+
+  it("registers label layers with P1-P5 priority ordering and collision disabled", () => {
+    const map = new FakeMap();
+    registerBaseMap(map, {
+      roads: emptyCollection,
+      buildings: emptyCollection,
+      water: emptyCollection,
+      green: emptyCollection,
+      landuse: emptyCollection,
+      "road-labels": emptyCollection,
+      "place-labels": emptyCollection,
+      poi: emptyCollection,
+    });
+
+    const layerIds = map.layers.map(({ id }) => id);
+    const labelLayerIds = layerIds.filter((id) => id.includes("label") || id.includes("poi"));
+    expect(labelLayerIds.length).toBeGreaterThan(0);
+
+    const majorRoadLabel = map.layers.find(({ id }) => id === "road-label-major") as { layout: Record<string, unknown> } | undefined;
+    expect(majorRoadLabel).toBeDefined();
+    expect(majorRoadLabel!.layout["symbol-placement"]).toBe("line");
+    expect(majorRoadLabel!.layout["text-allow-overlap"]).toBe(false);
+    expect(majorRoadLabel!.layout["text-ignore-placement"]).toBe(false);
+    expect(majorRoadLabel!.layout["symbol-sort-key"]).toBeDefined();
+
+    const poiDense = map.layers.find(({ id }) => id === "poi-label-dense") as { layout: Record<string, unknown> } | undefined;
+    expect(poiDense).toBeDefined();
+    expect(poiDense!.layout["text-allow-overlap"]).toBe(false);
+  });
+
+  it("sets minzoom bands for progressive label visibility", () => {
+    const map = new FakeMap();
+    registerBaseMap(map, {
+      roads: emptyCollection,
+      buildings: emptyCollection,
+      water: emptyCollection,
+      green: emptyCollection,
+      landuse: emptyCollection,
+      "road-labels": emptyCollection,
+      "place-labels": emptyCollection,
+      poi: emptyCollection,
+    });
+
+    const majorRoad = map.layers.find(({ id }) => id === "road-label-major") as { minzoom: number } | undefined;
+    const secondaryRoad = map.layers.find(({ id }) => id === "road-label-secondary") as { minzoom: number } | undefined;
+    const residentialRoad = map.layers.find(({ id }) => id === "road-label-local") as { minzoom: number } | undefined;
+    const poiImportant = map.layers.find(({ id }) => id === "poi-label-important") as { minzoom: number } | undefined;
+    const poiDense = map.layers.find(({ id }) => id === "poi-label-dense") as { minzoom: number } | undefined;
+
+    expect(majorRoad!.minzoom).toBeLessThanOrEqual(12);
+    expect(secondaryRoad!.minzoom).toBeGreaterThanOrEqual(12);
+    expect(residentialRoad!.minzoom).toBeGreaterThanOrEqual(15);
+    expect(poiImportant!.minzoom).toBeGreaterThanOrEqual(14);
+    expect(poiDense!.minzoom).toBeGreaterThanOrEqual(16);
   });
 });

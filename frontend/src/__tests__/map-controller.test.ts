@@ -170,6 +170,7 @@ describe("MapController", () => {
   it("uses centralized navigation tokens above existing base-map layers", () => {
     const map = new FakeMap();
     map.layers.set("arterial-road-surface", { id: "arterial-road-surface" });
+    map.layers.set("poi-label-dense", { id: "poi-label-dense" });
     const controller = new MapController(map);
 
     controller.renderRoute(route);

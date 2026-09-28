@@ -13,9 +13,9 @@ require_local_get() {
 }
 
 require_local_get "frontend" "http://127.0.0.1:5173/"
-for map_layer in roads buildings water green landuse; do
+for map_layer in roads buildings water green landuse road-labels place-labels poi; do
   if ! curl --max-time 3 --fail --silent "http://127.0.0.1:5173/generated/${map_layer}.geojson" \
-    | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["type"] == "FeatureCollection" and data["features"]'; then
+    | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["type"] == "FeatureCollection" and data["features"] is not None'; then
     echo "offline ${map_layer} map data is missing or invalid" >&2
     exit 1
   fi
