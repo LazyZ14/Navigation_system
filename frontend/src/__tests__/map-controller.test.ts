@@ -112,6 +112,7 @@ describe("MapController", () => {
       next_maneuver: null,
       remaining_distance_m: 500,
       off_route: false,
+      progress: 0.5,
     } as never);
 
     expect(map.layers.has("route-passed")).toBe(true);
@@ -160,6 +161,7 @@ describe("MapController", () => {
       next_maneuver: null,
       remaining_distance_m: 100,
       off_route: false,
+      progress: 1.0,
     } as never);
 
     expect(map.sources.get("route-passed")?.data).toMatchObject({

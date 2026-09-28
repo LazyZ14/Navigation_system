@@ -85,7 +85,7 @@ export class MapController {
 
   updateNavigation(state: NavigationState): void {
     if (state.matched_location === null) return;
-    this.updatePassedRoute(state.matched_location.lon, state.matched_location.lat);
+    this.updatePassedRoute(state.matched_location.lon, state.matched_location.lat, state.progress);
     const data: PointFeature = {
       type: "Feature",
       properties: { heading: state.raw_location?.heading ?? 0 },
@@ -112,22 +112,12 @@ export class MapController {
     });
   }
 
-  private updatePassedRoute(lon: number, lat: number): void {
+  private updatePassedRoute(lon: number, lat: number, progress: number): void {
     if (this.routeCoordinates.length === 0) return;
-    let nearestIndex = 0;
-    let nearestDistanceSquaredM = Number.POSITIVE_INFINITY;
-    this.routeCoordinates.forEach(([routeLon, routeLat], index) => {
-      const metersPerDegreeLatitude = 111_320;
-      const meanLatitudeRadians = ((routeLat + lat) / 2) * (Math.PI / 180);
-      const eastDistanceM = (routeLon - lon) * metersPerDegreeLatitude * Math.cos(meanLatitudeRadians);
-      const northDistanceM = (routeLat - lat) * metersPerDegreeLatitude;
-      const distanceSquaredM = eastDistanceM ** 2 + northDistanceM ** 2;
-      if (distanceSquaredM < nearestDistanceSquaredM) {
-        nearestDistanceSquaredM = distanceSquaredM;
-        nearestIndex = index;
-      }
-    });
-    const coordinates = this.routeCoordinates.slice(0, nearestIndex + 1);
+    // Use backend progress to determine how much of the route has been passed
+    // This is authoritative and avoids independent spatial matching that can jump backwards
+    const progressIndex = Math.floor(progress * (this.routeCoordinates.length - 1));
+    const coordinates = this.routeCoordinates.slice(0, progressIndex + 1);
     const last = coordinates.at(-1);
     if (last?.[0] !== lon || last?.[1] !== lat) coordinates.push([lon, lat]);
     if (coordinates.length === 1) coordinates.push([coordinates[0][0], coordinates[0][1]]);
