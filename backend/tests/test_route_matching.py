@@ -196,3 +196,72 @@ def test_reroute_new_match_starts_fresh():
 
     assert match.segment_index == 0
     assert match.progress >= 0.0
+
+
+def test_heading_noise_does_not_reject_spatially_unique_segment():
+    """Heading is a disambiguator, not a hard filter. Spatially unique segments must not be rejected due to heading noise."""
+    # Route with a single segment going east
+    route = [
+        Coordinate(lat=39.9, lon=116.4),
+        Coordinate(lat=39.9, lon=116.41),
+    ]
+
+    # Location exactly on the segment
+    location = Coordinate(lat=39.9, lon=116.405)
+
+    # GPS heading is wrong (pointing west instead of east)
+    # This could happen due to GPS noise, low speed, or sensor error
+    match = match_route_with_continuity(location, route, None, heading=270.0)
+
+    # Should still match the only available segment despite wrong heading
+    assert match.segment_index == 0
+    assert match.distance_to_route_m < 1.0  # Should be very close to route
+
+
+def test_low_speed_unstable_heading_still_matches():
+    """At low speeds, GPS course/heading can be unstable. Matcher must still find the correct segment."""
+    # Route going north
+    route = [
+        Coordinate(lat=39.9, lon=116.4),
+        Coordinate(lat=39.91, lon=116.4),
+    ]
+
+    # Location on the segment
+    location = Coordinate(lat=39.905, lon=116.4)
+
+    # Heading is random/unstable (could be any direction)
+    match = match_route_with_continuity(location, route, None, heading=45.0)
+
+    # Should still match the segment
+    assert match.segment_index == 0
+    assert match.distance_to_route_m < 1.0
+
+
+def test_heading_disambiguates_not_filters_with_continuity():
+    """When multiple spatial candidates exist, heading should disambiguate, not hard-reject."""
+    # U-turn route: A→B (east), B→C (west)
+    # Location is at B, spatially equidistant from both segments
+    route = [
+        Coordinate(lat=39.9, lon=116.4),   # A
+        Coordinate(lat=39.9, lon=116.41),  # B (U-turn point)
+        Coordinate(lat=39.9, lon=116.4),   # C (back to start)
+    ]
+
+    # Location at B
+    location = Coordinate(lat=39.9, lon=116.41)
+
+    # Previous match on first segment (A→B), heading east
+    previous = RouteMatch(
+        segment_index=0,
+        projected_location=Coordinate(lat=39.9, lon=116.405),
+        distance_to_route_m=0.0,
+        distance_along_route_m=500.0,
+        progress=0.25,
+    )
+
+    # Now heading west (after U-turn)
+    # Should match second segment (B→C) due to heading + continuity
+    match = match_route_with_continuity(location, route, previous, heading=270.0)
+
+    # Should match second segment, not first
+    assert match.segment_index == 1

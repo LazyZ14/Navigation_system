@@ -122,17 +122,6 @@ def match_route_with_continuity(
         end = route[i + 1]
         segment_length = distance_between_m(start, end)
 
-        # If heading is provided, filter out segments with opposite direction
-        if heading is not None:
-            segment_heading = _calculate_segment_heading(start, end)
-            heading_diff = abs(segment_heading - heading)
-            if heading_diff > 180:
-                heading_diff = 360 - heading_diff
-            # If heading difference > 90°, this segment is going in the wrong direction
-            if heading_diff > 90:
-                cumulative_distance += segment_length
-                continue
-
         # Project point to segment
         projected, distance, offset = project_point_to_segment(location, start, end)
 
@@ -166,20 +155,24 @@ def match_route_with_continuity(
     if not candidates:
         return _global_nearest_match(location, route)
 
-    # Phase 2: Rank candidates by continuity and heading
+    # Phase 2: Rank candidates by distance, continuity, and heading
+    # Heading is a disambiguator, not a hard filter
     total_route_distance = cumulative_distance
 
     def score_candidate(candidate):
-        # Continuity score: prefer candidates close to previous position
+        # Primary: minimize distance to route (spatial fit)
+        distance_score = candidate['distance'] * 1000
+
+        # Secondary: prefer candidates close to previous position (continuity)
         if previous_match is not None:
             continuity_score = abs(candidate['distance_along'] - previous_match.distance_along_route_m)
         else:
             continuity_score = 0.0
 
-        # Heading score: prefer candidates with similar heading
+        # Tertiary: prefer candidates with similar heading (disambiguation)
+        # Strong weight to make heading decisive when spatial candidates are similar
         heading_score = 0.0
         if heading is not None:
-            # Calculate segment heading
             segment_heading = _calculate_segment_heading(
                 candidate['segment_start'],
                 candidate['segment_end']
@@ -188,14 +181,15 @@ def match_route_with_continuity(
             heading_diff = abs(segment_heading - heading)
             if heading_diff > 180:
                 heading_diff = 360 - heading_diff
+            # Penalize opposite direction strongly, but don't hard-reject
             heading_score = heading_diff
 
         # Combined score: distance is primary, continuity and heading are secondary
         # Lower is better
         return (
-            candidate['distance'] * 1000 +  # Primary: minimize distance to route
-            continuity_score * 0.1 +  # Secondary: prefer continuity
-            heading_score * 0.5  # Tertiary: prefer matching heading
+            distance_score +
+            continuity_score * 0.1 +
+            heading_score * 2.0  # Strong heading influence for disambiguation
         )
 
     # Find best candidate
