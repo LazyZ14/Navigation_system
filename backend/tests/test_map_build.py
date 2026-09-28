@@ -155,6 +155,40 @@ def test_suppresses_tagged_member_way_when_its_relation_fails(tmp_path: Path):
     assert reports[-1] == "relation 500 skipped: missing way member 9999"
 
 
+def test_suppresses_every_way_member_when_a_missing_member_comes_first(tmp_path: Path):
+    source = tmp_path / "map.osm"
+    source.write_text(
+        """<osm>
+  <node id="1" lat="0" lon="0"/><node id="2" lat="0" lon="1"/>
+  <node id="3" lat="1" lon="1"/><node id="4" lat="1" lon="0"/>
+  <way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/><tag k="natural" v="water"/></way>
+  <relation id="600"><member type="way" ref="9999" role="outer"/><member type="way" ref="10" role="outer"/><tag k="type" v="multipolygon"/><tag k="natural" v="water"/></relation>
+</osm>"""
+    )
+
+    layers, reports = build_tiles.build_feature_collections(source)
+
+    assert layers["water"]["features"] == []
+    assert reports == ["relation 600 skipped: missing way member 9999"]
+
+
+def test_skips_relation_without_outer_members_and_suppresses_its_inner_way(tmp_path: Path):
+    source = tmp_path / "map.osm"
+    source.write_text(
+        """<osm>
+  <node id="1" lat="0" lon="0"/><node id="2" lat="0" lon="1"/>
+  <node id="3" lat="1" lon="1"/><node id="4" lat="1" lon="0"/>
+  <way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/><tag k="natural" v="water"/></way>
+  <relation id="700"><member type="way" ref="10" role="inner"/><tag k="type" v="multipolygon"/><tag k="natural" v="water"/></relation>
+</osm>"""
+    )
+
+    layers, reports = build_tiles.build_feature_collections(source)
+
+    assert layers["water"]["features"] == []
+    assert reports == ["relation 700 skipped: relation has no outer members"]
+
+
 def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_path: Path):
     project = tmp_path / "project"
     scripts = project / "scripts"

@@ -122,6 +122,8 @@ def multipolygon_geometry(
         else:
             return None, member_way_ids, f"unsupported member role {role or 'empty'}"
 
+    if not outer_paths:
+        return None, member_way_ids, "relation has no outer members"
     outer_refs, error = stitch_rings(outer_paths)
     if error is not None:
         return None, member_way_ids, f"outer {error}"
@@ -167,9 +169,10 @@ def build_feature_collections(input_path: Path) -> tuple[dict[str, dict[str, obj
         classes = [item for item in semantic_classes(relation_tags) if item != ("water", "waterway")]
         if not classes:
             continue
-        geometry, member_ids, error = multipolygon_geometry(relation, ways, nodes)
+        candidate_member_ids = [member.attrib["ref"] for member in relation.findall("member") if member.attrib.get("type") == "way"]
+        geometry, _, error = multipolygon_geometry(relation, ways, nodes)
         for category, _ in classes:
-            suppressed_way_ids[category].update(member_ids)
+            suppressed_way_ids[category].update(candidate_member_ids)
         relation_id = relation.attrib["id"]
         if error is not None:
             reports.append(f"relation {relation_id} skipped: {error}")
