@@ -4,6 +4,7 @@ import maplibregl from "maplibre-gl";
 
 import { createNavigationSession, getNavigationSession, pauseReplay, requestReplayNext, resumeReplay } from "./api";
 import { MapController } from "./map-controller";
+import { MAP_VISUAL_TOKENS, registerBaseMap, type BaseMapLike } from "./map-style";
 import { navigationErrorLabel, navigationLabel, selectionLabel } from "./navigation-ui";
 import type { Coordinate } from "./types";
 
@@ -14,7 +15,7 @@ const map = new maplibregl.Map({
   style: {
     version: 8,
     sources: {},
-    layers: [{ id: "background", type: "background", paint: { "background-color": "#f8fafc" } }],
+    layers: [{ id: "background", type: "background", paint: { "background-color": MAP_VISUAL_TOKENS.background } }],
   },
 });
 
@@ -66,27 +67,21 @@ function refreshSelection(): void {
 }
 
 map.on("load", async () => {
-  let roads: { type: string; features: unknown[] };
   try {
-    const response = await fetch("/generated/map-roads.geojson");
-    if (!response.ok) throw new Error("offline map data unavailable");
-    roads = (await response.json()) as { type: string; features: unknown[] };
-    if (roads.type !== "FeatureCollection" || roads.features.length === 0) throw new Error("offline map data invalid");
+    const sourceNames = ["roads", "buildings", "water", "green", "landuse"] as const;
+    const collections = await Promise.all(sourceNames.map(async (name) => {
+      const response = await fetch(`/generated/${name}.geojson`);
+      if (!response.ok) throw new Error("offline map data unavailable");
+      const collection = (await response.json()) as { type: string; features: unknown };
+      if (collection.type !== "FeatureCollection" || !Array.isArray(collection.features)) throw new Error("offline map data invalid");
+      return collection as { type: "FeatureCollection"; features: unknown[] };
+    }));
+    registerBaseMap(map as unknown as BaseMapLike, Object.fromEntries(sourceNames.map((name, index) => [name, collections[index]])) as Parameters<typeof registerBaseMap>[1]);
   } catch {
     summary.textContent = "无法加载离线地图数据：请先运行地图构建脚本。";
     button.disabled = true;
     return;
   }
-  map.addSource("roads", { type: "geojson", data: roads as never });
-  map.addLayer({
-    id: "roads-line",
-    type: "line",
-    source: "roads",
-    paint: {
-      "line-color": ["match", ["get", "class"], "primary", "#64748b", "secondary", "#94a3b8", "#cbd5e1"],
-      "line-width": ["match", ["get", "class"], "primary", 3, "secondary", 2, 1],
-    },
-  });
   const controller = new MapController(map as unknown as import("./map-controller").MapLike);
   originMarker = new maplibregl.Marker({ color: "#16a34a" }).setLngLat([demoOrigin.lon, demoOrigin.lat]).addTo(map);
   destinationMarker = new maplibregl.Marker({ color: "#dc2626" }).setLngLat([demoDestination.lon, demoDestination.lat]).addTo(map);

@@ -15,7 +15,7 @@ shasum -a 256 data/raw/map.osm
 | 输出 | 目录 | 用途 |
 | --- | --- | --- |
 | OSRM MLD 数据 | `data/osrm/` | 本地汽车路线服务 |
-| 离线道路 GeoJSON（第一版） | `frontend/public/generated/` | MapLibre 离线底图 |
+| 离线主题 GeoJSON | `frontend/public/generated/` | MapLibre 离线底图 |
 | 离线 MBTiles（后续性能升级） | `data/tiles/` | 高缩放级别矢量底图 |
 | 构建元信息 JSON | `data/metadata/` | 追溯输入、边界、时间和命令 |
 
@@ -38,6 +38,16 @@ docker compose up -d osrm
 ./scripts/build_tiles.sh data/raw/map.osm
 ```
 
-当前导出的地图是 OSM XML，而 tilemaker 仅接收 PBF。第一阶段脚本因此生成本地道路 GeoJSON，供 MapLibre 从 `/generated/map-roads.geojson` 加载；它不访问在线瓦片服务。
-对应的 `data/metadata/map.osm-maplibre-road-geojson-build.json` 独立记录同一输入的校验值、边界、
+当前导出的地图是 OSM XML，而 tilemaker 仅接收 PBF。脚本因此从同一份本地 OSM 生成五类主题 GeoJSON：
+`roads.geojson`、`buildings.geojson`、`water.geojson`、`green.geojson` 和 `landuse.geojson`；MapLibre 从
+`/generated/` 加载它们，不访问在线瓦片服务。构建器允许任一主题产出合法的空 `FeatureCollection`；北京 Demo 的
+smoke test 则额外要求五类文件均非空。
+
+面状 multipolygon 仅按 OSM node reference ID 拼接 way；无法闭合、缺失成员或嵌套成员的 relation 会跳过并以确定顺序
+报告。成功 relation 会保留 outer/inner（洞）语义，并消费同类别 member way，避免 relation 与 standalone polygon 重叠；
+relation 失败时，其相关 member way 也不会作为该类别的 standalone 回退输出。
+
+对应的 `data/metadata/map.osm-maplibre-thematic-geojson-build.json` 独立记录同一输入的校验值、边界、
 Python/XML 工具版本、输出与完整命令，避免覆盖 OSRM 构建记录。
+
+本轮仅交付上述五类基础地图语义和导航叠加；道路名、建筑名与其他 labels、POI、railway、sprites、MBTiles 和矢量瓦片均为后续增强，不能由构建脚本或前端运行时隐式引入。

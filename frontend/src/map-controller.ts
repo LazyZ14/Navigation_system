@@ -1,4 +1,5 @@
 import type { NavigationState, RouteResponse } from "./types";
+import { MAP_VISUAL_TOKENS } from "./map-style";
 
 type GeoJsonPosition = [longitude: number, latitude: number];
 
@@ -55,13 +56,13 @@ export class MapController {
       id: "route-casing",
       type: "line",
       source: ROUTE_SOURCE_ID,
-      paint: { "line-color": "#172554", "line-width": 12, "line-opacity": 0.9 },
+      paint: { "line-color": MAP_VISUAL_TOKENS.navigation.routeCasing, "line-width": 11, "line-opacity": 0.9 },
     });
     this.map.addLayer({
       id: "route-active",
       type: "line",
       source: ROUTE_SOURCE_ID,
-      paint: { "line-color": "#2f80ed", "line-width": 7, "line-opacity": 1 },
+      paint: { "line-color": MAP_VISUAL_TOKENS.navigation.routeActive, "line-width": 7, "line-opacity": 1 },
     });
   }
 
@@ -107,7 +108,7 @@ export class MapController {
         "text-rotation-alignment": "map",
         "text-allow-overlap": true,
       },
-      paint: { "text-color": "#dc2626", "text-halo-color": "#ffffff", "text-halo-width": 2 },
+      paint: { "text-color": MAP_VISUAL_TOKENS.navigation.vehicle, "text-halo-color": MAP_VISUAL_TOKENS.navigation.vehicleHalo, "text-halo-width": 2 },
     });
   }
 
@@ -145,7 +146,7 @@ export class MapController {
       id: PASSED_LAYER_ID,
       type: "line",
       source: PASSED_SOURCE_ID,
-      paint: { "line-color": "#94a3b8", "line-width": 7, "line-opacity": 1 },
+      paint: { "line-color": MAP_VISUAL_TOKENS.navigation.routePassed, "line-width": 7, "line-opacity": 1 },
     });
   }
 
