@@ -75,6 +75,7 @@ class NavigationService:
             next_maneuver=next_maneuver,
             remaining_distance_m=self._route.distance_m * (1 - progress) if self._route else None,
             off_route=off_route,
+            progress=progress,
         )
         return self._state
 
