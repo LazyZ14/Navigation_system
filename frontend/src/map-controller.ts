@@ -114,12 +114,11 @@ export class MapController {
 
   private updatePassedRoute(lon: number, lat: number, progress: number): void {
     if (this.routeCoordinates.length === 0) return;
-    // Use backend progress to determine how much of the route has been passed
-    // This is authoritative and avoids independent spatial matching that can jump backwards
-    const progressIndex = Math.floor(progress * (this.routeCoordinates.length - 1));
-    const coordinates = this.routeCoordinates.slice(0, progressIndex + 1);
-    const last = coordinates.at(-1);
-    if (last?.[0] !== lon || last?.[1] !== lat) coordinates.push([lon, lat]);
+
+    // Distance-based slicing: use backend progress to determine distance traveled
+    // then interpolate along the polyline to find the exact position
+    const coordinates = this.slicePolylineByDistance(progress);
+
     if (coordinates.length === 1) coordinates.push([coordinates[0][0], coordinates[0][1]]);
     const data: LineFeature = {
       type: "Feature",
@@ -138,6 +137,60 @@ export class MapController {
       source: PASSED_SOURCE_ID,
       paint: { "line-color": MAP_VISUAL_TOKENS.navigation.routePassed, "line-width": 7, "line-opacity": 1 },
     });
+  }
+
+  private slicePolylineByDistance(progress: number): GeoJsonPosition[] {
+    if (this.routeCoordinates.length === 0 || progress <= 0) {
+      return [this.routeCoordinates[0] || [0, 0]];
+    }
+
+    // Calculate total distance
+    let totalDistance = 0;
+    const segmentDistances: number[] = [];
+    for (let i = 0; i < this.routeCoordinates.length - 1; i++) {
+      const [lon1, lat1] = this.routeCoordinates[i];
+      const [lon2, lat2] = this.routeCoordinates[i + 1];
+      const dist = this.distanceMeters(lon1, lat1, lon2, lat2);
+      segmentDistances.push(dist);
+      totalDistance += dist;
+    }
+
+    if (progress >= 1 || totalDistance === 0) {
+      return [...this.routeCoordinates];
+    }
+
+    const targetDistance = progress * totalDistance;
+    const result: GeoJsonPosition[] = [];
+    let accumulatedDistance = 0;
+
+    for (let i = 0; i < segmentDistances.length; i++) {
+      const segmentLength = segmentDistances[i];
+      result.push(this.routeCoordinates[i]);
+
+      if (accumulatedDistance + segmentLength >= targetDistance) {
+        // Target is within this segment - interpolate
+        const remainingDistance = targetDistance - accumulatedDistance;
+        const fraction = segmentLength > 0 ? remainingDistance / segmentLength : 0;
+        const [lon1, lat1] = this.routeCoordinates[i];
+        const [lon2, lat2] = this.routeCoordinates[i + 1];
+        const interpolatedLon = lon1 + fraction * (lon2 - lon1);
+        const interpolatedLat = lat1 + fraction * (lat2 - lat1);
+        result.push([interpolatedLon, interpolatedLat]);
+        break;
+      }
+
+      accumulatedDistance += segmentLength;
+    }
+
+    return result;
+  }
+
+  private distanceMeters(lon1: number, lat1: number, lon2: number, lat2: number): number {
+    const metersPerDegreeLatitude = 111_320;
+    const meanLatitudeRadians = ((lat1 + lat2) / 2) * (Math.PI / 180);
+    const eastDistanceM = (lon2 - lon1) * metersPerDegreeLatitude * Math.cos(meanLatitudeRadians);
+    const northDistanceM = (lat2 - lat1) * metersPerDegreeLatitude;
+    return Math.sqrt(eastDistanceM ** 2 + northDistanceM ** 2);
   }
 
   private toFeature(route: RouteResponse): LineFeature {
