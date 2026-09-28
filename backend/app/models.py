@@ -92,4 +92,4 @@ class NavigationSessionRequest(RouteRequest):
         }
     )
 
-    track_id: Literal["normal-route", "off-route"] | None = None
+    track_id: Literal["normal-route", "off-route", "current-route"] | None = None
