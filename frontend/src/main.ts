@@ -12,6 +12,7 @@ const map = new maplibregl.Map({
   container: "map",
   center: [116.402, 39.8997],
   zoom: 15,
+  localIdeographFontFamily: "PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif",
   style: {
     version: 8,
     sources: {},
@@ -68,7 +69,7 @@ function refreshSelection(): void {
 
 map.on("load", async () => {
   try {
-    const sourceNames = ["roads", "buildings", "water", "green", "landuse"] as const;
+    const sourceNames = ["roads", "buildings", "water", "green", "landuse", "road-labels", "place-labels", "poi"] as const;
     const collections = await Promise.all(sourceNames.map(async (name) => {
       const response = await fetch(`/generated/${name}.geojson`);
       if (!response.ok) throw new Error("offline map data unavailable");
