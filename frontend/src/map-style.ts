@@ -28,26 +28,31 @@ export type BaseMapLike = {
   addLayer: (layer: { id: string; [key: string]: unknown }) => void;
 };
 
-const width = (zoom10: number, zoom15: number, zoom18: number): Expression => [
-  "interpolate", ["linear"], ["zoom"], 10, zoom10, 15, zoom15, 18, zoom18,
-];
-
-const ROAD_WIDTHS: Record<string, Expression> = {
-  motorway: width(7, 13, 20), motorway_link: width(6, 11, 17),
-  trunk: width(6, 12, 18), trunk_link: width(5, 10, 16),
-  primary: width(5, 10, 16), primary_link: width(4, 9, 14),
-  secondary: width(4, 8, 13), secondary_link: width(3, 7, 11),
-  tertiary: width(3, 6, 10), tertiary_link: width(3, 5, 9),
-  residential: width(2, 4, 7), service: width(2, 3, 5),
-  unclassified: width(2, 3.5, 6), pedestrian: width(1.5, 3, 5),
-  footway: width(1, 2, 3), cycleway: width(1.5, 2.5, 4),
+const ROAD_WIDTHS: Record<string, [number, number, number]> = {
+  motorway: [7, 13, 20], motorway_link: [6, 11, 17],
+  trunk: [6, 12, 18], trunk_link: [5, 10, 16],
+  primary: [5, 10, 16], primary_link: [4, 9, 14],
+  secondary: [4, 8, 13], secondary_link: [3, 7, 11],
+  tertiary: [3, 6, 10], tertiary_link: [3, 5, 9],
+  residential: [2, 4, 7], service: [2, 3, 5],
+  unclassified: [2, 3.5, 6], pedestrian: [1.5, 3, 5],
+  footway: [1, 2, 3], cycleway: [1.5, 2.5, 4],
 };
 
-export const roadWidthExpression: Expression = [
+const widthsAtZoom = (index: 0 | 1 | 2, fallback: number, offset = 0): Expression => [
   "match", ["get", "class"],
-  ...Object.entries(ROAD_WIDTHS).flat(),
-  width(1, 2, 3),
+  ...Object.entries(ROAD_WIDTHS).flatMap(([roadClass, widths]) => [roadClass, widths[index] + offset]),
+  fallback,
 ];
+
+const interpolatedRoadWidth = (offset = 0): Expression => [
+  "interpolate", ["linear"], ["zoom"],
+  10, widthsAtZoom(0, 1 + offset, offset),
+  15, widthsAtZoom(1, 2 + offset, offset),
+  18, widthsAtZoom(2, 3 + offset, offset),
+];
+
+export const roadWidthExpression = interpolatedRoadWidth();
 
 function roadFilter(classes: readonly string[]): Expression {
   return ["in", ["get", "class"], ["literal", classes]];
@@ -59,7 +64,7 @@ function roadLayers(group: "local" | "arterial"): Array<{ id: string; [key: stri
     {
       id: `${group}-road-casing`, type: "line", source: "roads", filter,
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": MAP_VISUAL_TOKENS.roads.casing, "line-width": ["+", roadWidthExpression, 2] },
+      paint: { "line-color": MAP_VISUAL_TOKENS.roads.casing, "line-width": interpolatedRoadWidth(2) },
     },
     {
       id: `${group}-road-surface`, type: "line", source: "roads", filter,

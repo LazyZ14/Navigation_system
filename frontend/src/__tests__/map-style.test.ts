@@ -46,6 +46,8 @@ describe("offline base-map style", () => {
       "arterial-road-casing",
       "arterial-road-surface",
     ]);
+    const casingWidth = map.layers.find(({ id }) => id === "local-road-casing")?.paint as Record<string, unknown>;
+    expect((casingWidth["line-width"] as unknown[]).slice(0, 3)).toEqual(["interpolate", ["linear"], ["zoom"]]);
   });
 
   it("covers every supported highway class in one grouped road layer family", () => {
@@ -57,16 +59,16 @@ describe("offline base-map style", () => {
   });
 
   it("keeps class-specific interpolated road widths within grouped layers", () => {
-    expect(roadWidthExpression.slice(0, 2)).toEqual(["match", ["get", "class"]]);
-    const branches = roadWidthExpression.slice(2, -1);
+    expect(roadWidthExpression.slice(0, 3)).toEqual(["interpolate", ["linear"], ["zoom"]]);
+    const zoom15WidthMatch = roadWidthExpression[6] as unknown[];
+    expect(zoom15WidthMatch.slice(0, 2)).toEqual(["match", ["get", "class"]]);
+    const branches = zoom15WidthMatch.slice(2, -1);
     const primary = branches[branches.indexOf("primary") + 1];
     const secondary = branches[branches.indexOf("secondary") + 1];
     const tertiary = branches[branches.indexOf("tertiary") + 1];
 
-    expect(primary).toEqual(expect.arrayContaining(["interpolate", ["linear"], ["zoom"]]));
-    expect(secondary).toEqual(expect.arrayContaining(["interpolate", ["linear"], ["zoom"]]));
-    expect(tertiary).toEqual(expect.arrayContaining(["interpolate", ["linear"], ["zoom"]]));
-    expect(primary).not.toEqual(secondary);
-    expect(secondary).not.toEqual(tertiary);
+    expect(primary).toBe(10);
+    expect(secondary).toBe(8);
+    expect(tertiary).toBe(6);
   });
 });

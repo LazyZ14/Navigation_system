@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Build semantic offline MapLibre GeoJSON layers from OSM XML."""
 
+from __future__ import annotations
+
 import argparse
 import json
 import platform
@@ -193,6 +195,7 @@ def build_feature_collections(input_path: Path) -> tuple[dict[str, dict[str, obj
 
 def write_feature_collections(feature_collections: dict[str, dict[str, object]], output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "map-roads.geojson").unlink(missing_ok=True)
     outputs: list[Path] = []
     for name in LAYER_NAMES:
         output = output_dir / f"{name}.geojson"

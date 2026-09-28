@@ -164,6 +164,9 @@ def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_pa
     source = project / "data" / "raw" / "map.osm"
     source.parent.mkdir(parents=True)
     write_osm(source)
+    generated = project / "frontend" / "public" / "generated"
+    generated.mkdir(parents=True)
+    (generated / "map-roads.geojson").write_text("legacy artifact")
 
     result = subprocess.run(
         [sys.executable, str(scripts / "build_tiles.sh"), str(source)],
@@ -172,7 +175,6 @@ def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_pa
         text=True,
     )
 
-    generated = project / "frontend" / "public" / "generated"
     assert result.stdout == "wrote 5 thematic GeoJSON files\n"
     assert {path.name for path in generated.iterdir()} == {
         "roads.geojson", "buildings.geojson", "water.geojson", "green.geojson", "landuse.geojson"
@@ -188,3 +190,22 @@ def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_pa
     assert metadata["output"] == ",".join(
         f"frontend/public/generated/{name}.geojson" for name in ("roads", "buildings", "water", "green", "landuse")
     )
+
+
+def test_cli_runs_with_the_project_python3_entrypoint(tmp_path: Path):
+    project = tmp_path / "project"
+    scripts = project / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(SCRIPTS / "build_tiles.sh", scripts / "build_tiles.sh")
+    shutil.copy2(SCRIPTS / "verify_data.py", scripts / "verify_data.py")
+    source = project / "data" / "raw" / "map.osm"
+    source.parent.mkdir(parents=True)
+    write_osm(source)
+
+    result = subprocess.run(
+        [shutil.which("python3") or "python3", str(scripts / "build_tiles.sh"), str(source)],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr

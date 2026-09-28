@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Record reproducibility metadata for an OSM build input."""
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
