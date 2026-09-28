@@ -111,12 +111,15 @@ class NavigationSessionStore:
     async def create(
         self, origin: Coordinate, destination: Coordinate, track_id: str | None = None
     ) -> NavigationSession:
+        route = await self._client.route(origin, destination)
         points = None
-        if track_id is not None:
+        if track_id == "current-route":
+            from app.services.track_generator import generate_route_track
+            points = generate_route_track(route)
+        elif track_id is not None:
             points = self._tracks.get(track_id)
             if points is None:
                 raise ValueError("unknown synthetic track")
-        route = await self._client.route(origin, destination)
         session_id = str(uuid4())
         service = NavigationService(self._client, route, destination=destination)
         self._services[session_id] = service
