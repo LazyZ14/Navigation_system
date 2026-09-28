@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MapController, type MapLike } from "../map-controller";
+import { MAP_VISUAL_TOKENS } from "../map-style";
 import type { RouteResponse } from "../types";
 
 class FakeMap implements MapLike {
@@ -164,5 +165,34 @@ describe("MapController", () => {
     expect(map.sources.get("route-passed")?.data).toMatchObject({
       geometry: { coordinates: expect.arrayContaining([[0, 60.0007]]) },
     });
+  });
+
+  it("uses centralized navigation tokens above existing base-map layers", () => {
+    const map = new FakeMap();
+    map.layers.set("arterial-road-surface", { id: "arterial-road-surface" });
+    const controller = new MapController(map);
+
+    controller.renderRoute(route);
+    controller.updateNavigation({
+      status: "navigating",
+      raw_location: { heading: 90 },
+      matched_location: { lat: 39.9, lon: 116.4 },
+      next_maneuver: null,
+      remaining_distance_m: 900,
+      off_route: false,
+    } as never);
+
+    const casing = map.layers.get("route-casing") as { paint: Record<string, number | string> };
+    const active = map.layers.get("route-active") as { paint: Record<string, number | string> };
+    const passed = map.layers.get("route-passed") as { paint: Record<string, number | string> };
+    const vehicle = map.layers.get("vehicle-marker") as { paint: Record<string, number | string> };
+    expect(casing.paint["line-color"]).toBe(MAP_VISUAL_TOKENS.navigation.routeCasing);
+    expect(casing.paint["line-width"]).toBe((active.paint["line-width"] as number) + 4);
+    expect(passed.paint["line-color"]).toBe(MAP_VISUAL_TOKENS.navigation.routePassed);
+    expect(vehicle.paint).toMatchObject({
+      "text-color": MAP_VISUAL_TOKENS.navigation.vehicle,
+      "text-halo-color": MAP_VISUAL_TOKENS.navigation.vehicleHalo,
+    });
+    expect([...map.layers.keys()].slice(-4)).toEqual(["route-casing", "route-active", "route-passed", "vehicle-marker"]);
   });
 });
