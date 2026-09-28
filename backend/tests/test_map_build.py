@@ -243,3 +243,95 @@ def test_cli_runs_with_the_project_python3_entrypoint(tmp_path: Path):
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_select_label_name_prefers_name_zh():
+    assert build_tiles.select_label_name({"name:zh": "前门东大街", "name": "Qianmen", "name:en": "Qianmen St"}) == "前门东大街"
+
+
+def test_select_label_name_falls_back_to_name():
+    assert build_tiles.select_label_name({"name": "Demo Road"}) == "Demo Road"
+
+
+def test_select_label_name_falls_back_to_name_en():
+    assert build_tiles.select_label_name({"name:en": "Main Street"}) == "Main Street"
+
+
+def test_select_label_name_rejects_blank_values():
+    assert build_tiles.select_label_name({"name:zh": "  ", "name": "", "name:en": "  "}) is None
+
+
+def test_select_label_name_returns_none_without_any_name():
+    assert build_tiles.select_label_name({"highway": "primary"}) is None
+
+
+def test_representative_point_of_convex_polygon_uses_widest_interior_span():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is not None
+    assert reason is None
+    assert build_tiles.point_in_ring(anchor, geometry["coordinates"][0])
+
+
+def test_representative_point_of_concave_polygon_avoids_exterior_centroid():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [10.0, 0.0], [10.0, 2.0], [2.0, 2.0], [2.0, 10.0], [0.0, 10.0], [0.0, 0.0]]],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is not None
+    assert reason is None
+    assert build_tiles.point_in_ring(anchor, geometry["coordinates"][0])
+
+
+def test_representative_point_of_polygon_with_hole_stays_outside_hole():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [
+            [[0.0, 0.0], [20.0, 0.0], [20.0, 20.0], [0.0, 20.0], [0.0, 0.0]],
+            [[8.0, 8.0], [12.0, 8.0], [12.0, 12.0], [8.0, 12.0], [8.0, 8.0]],
+        ],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is not None
+    assert reason is None
+    assert build_tiles.point_in_ring(anchor, geometry["coordinates"][0])
+    assert not build_tiles.point_in_ring(anchor, geometry["coordinates"][1])
+
+
+def test_representative_point_of_multipolygon_uses_widest_component():
+    geometry = {
+        "type": "MultiPolygon",
+        "coordinates": [
+            [[[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0], [0.0, 0.0]]],
+            [[[5.0, 0.0], [20.0, 0.0], [20.0, 20.0], [5.0, 20.0], [5.0, 0.0]]],
+        ],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is not None
+    assert reason is None
+    inside_count = sum(
+        1 for polygon in geometry["coordinates"] if build_tiles.point_in_ring(anchor, polygon[0])
+    )
+    assert inside_count == 1
+    assert not build_tiles._point_in_any_hole(anchor, geometry["coordinates"])
+
+
+def test_representative_point_of_degenerate_polygon_returns_no_anchor():
+    geometry = {"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [0.0, 0.0]]]}
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is None
+    assert reason == "no reliable interior anchor"
+
+
+def test_representative_point_of_very_narrow_polygon_returns_no_anchor():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [100.0, 0.0], [100.0, 0.0], [0.0, 0.0]]],
+    }
+    anchor, reason = build_tiles.representative_point(geometry)
+    assert anchor is None
+    assert reason == "no reliable interior anchor"

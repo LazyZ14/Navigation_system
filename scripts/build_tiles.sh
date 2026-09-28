@@ -26,6 +26,142 @@ def tags(element: ElementTree.Element) -> dict[str, str]:
     return {tag.attrib["k"]: tag.attrib["v"] for tag in element.findall("tag")}
 
 
+def select_label_name(osm_tags: dict[str, str]) -> str | None:
+    for key in ("name:zh", "name", "name:en"):
+        value = osm_tags.get(key, "").strip()
+        if value:
+            return value
+    return None
+
+
+def _point_in_any_outer(point: list[float], multipoly_coords: list[list[list[list[float]]]]) -> bool:
+    return any(point_in_ring(point, polygon[0]) for polygon in multipoly_coords)
+
+
+def _point_in_any_hole(point: list[float], multipoly_coords: list[list[list[list[float]]]]) -> bool:
+    return any(
+        point_in_ring(point, ring)
+        for polygon in multipoly_coords
+        for ring in polygon[1:]
+    )
+
+
+def _span_contains(span_start: float, span_end: float, holes_on_line: list[tuple[float, float]]) -> bool:
+    span_width = span_end - span_start
+    if span_width <= 0:
+        return False
+    for hole_start, hole_end in holes_on_line:
+        if hole_start <= span_start and span_end <= hole_end:
+            return False
+    return True
+
+
+def _subtract_holes(span_start: float, span_end: float, holes_on_line: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    if span_end - span_start <= 0:
+        return []
+    sorted_holes = sorted(holes_on_line, key=lambda h: (h[0], h[1]))
+    result: list[tuple[float, float]] = []
+    cursor = span_start
+    for hole_start, hole_end in sorted_holes:
+        if hole_end <= cursor:
+            continue
+        if hole_start > cursor:
+            result.append((cursor, min(hole_start, span_end)))
+        cursor = max(cursor, hole_end)
+        if cursor >= span_end:
+            break
+    if cursor < span_end:
+        result.append((cursor, span_end))
+    return result
+
+
+def _polygon_anchor(ring: list[list[float]], holes: list[list[float]]) -> tuple[list[float] | None, float, str | None]:
+    if len(ring) < 4:
+        return None, 0.0, "no reliable interior anchor"
+    ys = sorted({coord[1] for coord in ring})
+    if len(ys) < 2:
+        return None, 0.0, "no reliable interior anchor"
+    scan_ys: list[float] = []
+    for index in range(len(ys) - 1):
+        scan_ys.append((ys[index] + ys[index + 1]) / 2.0)
+    best_anchor: list[float] | None = None
+    best_width = 0.0
+    for scan_y in scan_ys:
+        xs: list[float] = []
+        for index in range(len(ring) - 1):
+            x1, y1 = ring[index]
+            x2, y2 = ring[index + 1]
+            if (y1 > scan_y) != (y2 > scan_y):
+                x = x1 + (scan_y - y1) * (x2 - x1) / (y2 - y1)
+                xs.append(x)
+        if len(xs) < 2 or len(xs) % 2 != 0:
+            continue
+        xs_sorted = sorted(xs)
+        for span_index in range(0, len(xs_sorted), 2):
+            span_start = xs_sorted[span_index]
+            span_end = xs_sorted[span_index + 1]
+            hole_spans: list[tuple[float, float]] = []
+            for hole in holes:
+                hole_xs: list[float] = []
+                for hole_index in range(len(hole) - 1):
+                    hx1, hy1 = hole[hole_index]
+                    hx2, hy2 = hole[hole_index + 1]
+                    if (hy1 > scan_y) != (hy2 > scan_y):
+                        hole_x = hx1 + (scan_y - hy1) * (hx2 - hx1) / (hy2 - hy1)
+                        hole_xs.append(hole_x)
+                if len(hole_xs) >= 2 and len(hole_xs) % 2 == 0:
+                    hole_xs_sorted = sorted(hole_xs)
+                    for hole_span_index in range(0, len(hole_xs_sorted), 2):
+                        hole_spans.append((hole_xs_sorted[hole_span_index], hole_xs_sorted[hole_span_index + 1]))
+            valid_spans = _subtract_holes(span_start, span_end, hole_spans)
+            for valid_start, valid_end in valid_spans:
+                width = valid_end - valid_start
+                if width <= 0:
+                    continue
+                candidate = [(valid_start + valid_end) / 2.0, scan_y]
+                if (best_anchor is None or width > best_width
+                        or (width == best_width
+                            and best_anchor is not None
+                            and (candidate[1] < best_anchor[1]
+                                 or (candidate[1] == best_anchor[1] and candidate[0] < best_anchor[0])))):
+                    best_anchor = candidate
+                    best_width = width
+    if best_anchor is None:
+        return None, 0.0, "no reliable interior anchor"
+    return best_anchor, best_width, None
+
+
+def representative_point(geometry: dict[str, object]) -> tuple[list[float] | None, str | None]:
+    geom_type = geometry.get("type")
+    if geom_type == "Polygon":
+        coordinates = geometry["coordinates"]
+        outer = coordinates[0]
+        holes = list(coordinates[1:])
+        anchor, _, reason = _polygon_anchor(outer, holes)
+        return anchor, reason
+    if geom_type == "MultiPolygon":
+        coordinates = geometry["coordinates"]
+        best_anchor: list[float] | None = None
+        best_width = 0.0
+        for polygon in coordinates:
+            outer = polygon[0]
+            holes = list(polygon[1:])
+            anchor, width, reason = _polygon_anchor(outer, holes)
+            if anchor is None:
+                continue
+            if (best_anchor is None or width > best_width
+                    or (width == best_width
+                        and best_anchor is not None
+                        and (anchor[1] < best_anchor[1]
+                             or (anchor[1] == best_anchor[1] and anchor[0] < best_anchor[0])))):
+                best_anchor = anchor
+                best_width = width
+        if best_anchor is None:
+            return None, "no reliable interior anchor"
+        return best_anchor, None
+    return None, "no reliable interior anchor"
+
+
 def semantic_classes(osm_tags: dict[str, str]) -> list[tuple[str, str]]:
     classes: list[tuple[str, str]] = []
     if osm_tags.get("building") is not None:
