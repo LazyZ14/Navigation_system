@@ -1,0 +1,307 @@
+{"kind":"deck","id":"pr/gzg14h","name":"Deck"}
+{"kind":"layout","layoutId":"32010351-8617-48ff-8ba5-c0ca5e850d04","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"efb9264f-a326-4db6-838a-c6c90fe12b43","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/2so0lk","slide":1,"title":"面向实车部署的","textShapes":4}
+{"kind":"shape","id":"sh/l0v65w7a","slide":1,"bbox":[770,90,340,8]}
+{"kind":"shape","id":"sh/yx47u18j","slide":1,"bbox":[840,132,340,8]}
+{"kind":"shape","id":"sh/zydo36p4","slide":1,"bbox":[910,174,340,8]}
+{"kind":"shape","id":"sh/8n6p0b6l","slide":1,"bbox":[980,216,340,8]}
+{"kind":"shape","id":"sh/9ofq9g76","slide":1,"bbox":[1050,258,340,8]}
+{"kind":"shape","id":"sh/m1o7y18v","slide":1,"bbox":[1120,300,340,8]}
+{"kind":"shape","id":"sh/nmxo76p0","slide":1,"bbox":[1190,342,340,8]}
+{"kind":"shape","id":"sh/or2p47qh","slide":1,"bbox":[72,70,110,7]}
+{"kind":"textbox","id":"sh/psb6xc72","slide":1,"text":"面向实车部署的\n离线导航系统","textPreview":"面向实车部署的 | 离线导航系统","textChars":14,"textLines":2,"bbox":[72,160,660,180]}
+{"kind":"textbox","id":"sh/1kraxova","slide":1,"text":"从 AR-HUD 原型到可扩展的实时导航架构","textPreview":"从 AR-HUD 原型到可扩展的实时导航架构","textChars":22,"textLines":1,"bbox":[76,365,630,34]}
+{"kind":"textbox","id":"sh/0zi94jep","slide":1,"text":"MVP 阶段成果与下一步演进方案","textPreview":"MVP 阶段成果与下一步演进方案","textChars":16,"textLines":1,"bbox":[76,418,500,26]}
+{"kind":"textbox","id":"sh/fy9sved4","slide":1,"text":"2026.09","textPreview":"2026.09","textChars":7,"textLines":1,"bbox":[76,610,160,24]}
+{"kind":"notes","id":"nt/2so0lk","slide":1,"text":"汇报聚焦当前 MVP 已完成的离线导航闭环，以及走向实车部署时的架构路径。"}
+{"kind":"slide","id":"sl/ohn4f7","slide":2,"title":"02","textShapes":9}
+{"kind":"textbox","id":"sh/wnutgfi1","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/vmlsnahg","slide":2,"text":"为什么从 Unity 原型走向独立导航架构","textPreview":"为什么从 Unity 原型走向独立导航架构","textChars":21,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/ulcre50v","slide":2,"text":"AR-HUD 的表现层前提仍成立，但实车部署需要把实时导航能力从渲染工程中解耦。","textPreview":"AR-HUD 的表现层前提仍成立，但实车部署需要把实时导航能力从渲染工程中解耦。","textChars":40,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/9k3alkza","slide":2,"bbox":[72,205,526,290]}
+{"kind":"shape","id":"sh/8ju9cfip","slide":2,"bbox":[636,205,572,290]}
+{"kind":"textbox","id":"sh/7i1sjah4","slide":2,"text":"原型阶段：Unity / AR-HUD","textPreview":"原型阶段：Unity / AR-HUD","textChars":19,"textLines":1,"bbox":[104,238,420,34]}
+{"kind":"textbox","id":"sh/mhsra50j","slide":2,"text":"• 适合快速验证 HUD 呈现、路线叠加与交互\n• 业务逻辑、地图渲染、定位处理容易耦合\n• 面向持续定位与实时重算时，调试与替换成本上升","textPreview":"• 适合快速验证 HUD 呈现、路线叠加与交互 | • 业务逻辑、地图渲染、定位处理容易耦合 | • 面向持续定位与实时重算时，调试与替换成本上升","textChars":69,"textLines":3,"bbox":[104,300,435,125]}
+{"kind":"textbox","id":"sh/lgjah0ze","slide":2,"text":"实车部署：导航内核独立","textPreview":"实车部署：导航内核独立","textChars":11,"textLines":1,"bbox":[668,238,440,34]}
+{"kind":"textbox","id":"sh/kfa98vit","slide":2,"text":"• 路由、地图、定位匹配分别承担明确职责\n• HUD、Web 与后续车端显示共享同一导航状态\n• iOS GPS 与视觉识别通过适配层接入，不侵入路由引擎","textPreview":"• 路由、地图、定位匹配分别承担明确职责 | • HUD、Web 与后续车端显示共享同一导航状态 | • iOS GPS 与视觉识别通过适配层接入，不侵入路由引擎","textChars":77,"textLines":3,"bbox":[668,300,465,125]}
+{"kind":"textbox","id":"sh/ex0vmdor","slide":2,"text":"设计结论：用本地可复现的导航服务承接实时性要求，AR-HUD 作为可替换的显示终端。","textPreview":"设计结论：用本地可复现的导航服务承接实时性要求，AR-HUD 作为可替换的显示终端。","textChars":42,"textLines":1,"bbox":[72,548,1136,62]}
+{"kind":"textbox","id":"sh/zy9cvipc","slide":2,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  02","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  02","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/ohn4f7","slide":2,"text":"当前项目没有否定 AR-HUD 的价值，而是把它定位为显示层。导航内核可独立演进，并向其他车端或 Web 显示端复用。"}
+{"kind":"slide","id":"sl/otdbb8","slide":3,"title":"03","textShapes":11}
+{"kind":"textbox","id":"sh/r61c3e5o","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/s7adwj69","slide":3,"text":"MVP 目标与边界","textPreview":"MVP 目标与边界","textChars":9,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/t8ju5onu","slide":3,"text":"先验证一条完整、离线、可重复的汽车导航闭环。","textPreview":"先验证一条完整、离线、可重复的汽车导航闭环。","textChars":22,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/e9cvyt4f","slide":3,"bbox":[72,215,320,330]}
+{"kind":"shape","id":"sh/falc7y50","slide":3,"bbox":[72,215,320,10]}
+{"kind":"textbox","id":"sh/gbud03m5","slide":3,"text":"本阶段已纳入","textPreview":"本阶段已纳入","textChars":6,"textLines":1,"bbox":[98,255,260,34]}
+{"kind":"textbox","id":"sh/1c3e9onq","slide":3,"text":"离线路线规划\n离线地图渲染\n模拟轨迹回放\n道路吸附与偏航重算","textPreview":"离线路线规划 | 离线地图渲染 | 模拟轨迹回放 | 道路吸附与偏航重算","textChars":30,"textLines":4,"bbox":[98,320,266,170]}
+{"kind":"shape","id":"sh/ad8vmpov","slide":3,"bbox":[456,215,320,330]}
+{"kind":"shape","id":"sh/vehcvu5g","slide":3,"bbox":[456,215,320,10]}
+{"kind":"textbox","id":"sh/ne9grmxk","slide":3,"text":"架构原则","textPreview":"架构原则","textChars":4,"textLines":1,"bbox":[482,255,260,34]}
+{"kind":"textbox","id":"sh/2t0zihgf","slide":3,"text":"本地优先、可复现\nWGS-84 统一坐标\nOSRM / MapLibre / FastAPI 分层\n前端不直接依赖 OSRM","textPreview":"本地优先、可复现 | WGS-84 统一坐标 | OSRM / MapLibre / FastAPI 分层 | 前端不直接依赖 OSRM","textChars":62,"textLines":4,"bbox":[482,320,266,170]}
+{"kind":"shape","id":"sh/pgbitwfq","slide":3,"bbox":[840,215,320,330]}
+{"kind":"shape","id":"sh/of2hkre5","slide":3,"bbox":[840,215,320,10]}
+{"kind":"textbox","id":"sh/fq9gnmxo","slide":3,"text":"明确暂不纳入","textPreview":"明确暂不纳入","textChars":6,"textLines":1,"bbox":[866,255,260,34]}
+{"kind":"textbox","id":"sh/ep0zehg3","slide":3,"text":"真实 GPS 与车辆 CAN\n云地图、实时交通\n语音、LLM、OCR\n真实用户或车辆轨迹","textPreview":"真实 GPS 与车辆 CAN | 云地图、实时交通 | 语音、LLM、OCR | 真实用户或车辆轨迹","textChars":44,"textLines":4,"bbox":[866,320,266,170]}
+{"kind":"textbox","id":"sh/1srypcfu","slide":3,"text":"这套边界让 MVP 的结果可验证，也为后续硬件与算法接入预留明确接口。","textPreview":"这套边界让 MVP 的结果可验证，也为后续硬件与算法接入预留明确接口。","textChars":35,"textLines":1,"bbox":[72,595,1040,30]}
+{"kind":"textbox","id":"sh/0rihg7y9","slide":3,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  03","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  03","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/otdbb8","slide":3,"text":"MVP 不将尚未实现的 GPS、视觉和云端能力混入当前成果。测试轨迹全部为合成数据。"}
+{"kind":"slide","id":"sl/u17jk7","slide":4,"title":"04","textShapes":19}
+{"kind":"textbox","id":"sh/5kzepkf6","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/ih8ve5wf","slide":4,"text":"总体架构：四层分工，导航状态统一输出","textPreview":"总体架构：四层分工，导航状态统一输出","textChars":18,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/jihwnax0","slide":4,"text":"浏览器、未来 HUD 与车端显示都只消费协调服务发布的导航状态。","textPreview":"浏览器、未来 HUD 与车端显示都只消费协调服务发布的导航状态。","textChars":32,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/wf6dcve9","slide":4,"bbox":[72,220,230,82]}
+{"kind":"shape","id":"sh/xgfel0fu","slide":4,"bbox":[72,220,6,82]}
+{"kind":"textbox","id":"sh/atovalwj","slide":4,"text":"离线数据构建","textPreview":"离线数据构建","textChars":6,"textLines":1,"bbox":[90,235,196,25]}
+{"kind":"textbox","id":"sh/vexcjqx4","slide":4,"text":"OSM → OSRM / GeoJSON","textPreview":"OSM → OSRM / GeoJSON","textChars":20,"textLines":1,"bbox":[90,265,200,22]}
+{"kind":"shape","id":"sh/gbadozet","slide":4,"bbox":[363,220,230,82]}
+{"kind":"shape","id":"sh/1cjex4fe","slide":4,"bbox":[363,220,6,82]}
+{"kind":"textbox","id":"sh/t43uxknu","slide":4,"text":"OSRM 路由引擎","textPreview":"OSRM 路由引擎","textChars":9,"textLines":1,"bbox":[381,235,196,25]}
+{"kind":"textbox","id":"sh/s3ud4f6p","slide":4,"text":"路线、最近道路、匹配","textPreview":"路线、最近道路、匹配","textChars":10,"textLines":1,"bbox":[381,265,200,22]}
+{"kind":"shape","id":"sh/rilcva54","slide":4,"bbox":[654,220,260,82]}
+{"kind":"shape","id":"sh/6hsv25oj","slide":4,"bbox":[654,220,6,82]}
+{"kind":"textbox","id":"sh/5gjut0ny","slide":4,"text":"FastAPI 协调层","textPreview":"FastAPI 协调层","textChars":11,"textLines":1,"bbox":[672,235,226,25]}
+{"kind":"textbox","id":"sh/4fad0v6d","slide":4,"text":"会话、偏航、状态推送","textPreview":"会话、偏航、状态推送","textChars":10,"textLines":1,"bbox":[672,265,230,22]}
+{"kind":"shape","id":"sh/je1crq5s","slide":4,"bbox":[975,220,230,82]}
+{"kind":"shape","id":"sh/idsvy5o7","slide":4,"bbox":[975,220,6,82]}
+{"kind":"textbox","id":"sh/pcne54n2","slide":4,"text":"MapLibre 显示层","textPreview":"MapLibre 显示层","textChars":12,"textLines":1,"bbox":[993,235,196,25]}
+{"kind":"textbox","id":"sh/obedcz6h","slide":4,"text":"底图、路线、车标、提示","textPreview":"底图、路线、车标、提示","textChars":11,"textLines":1,"bbox":[993,265,200,22]}
+{"kind":"shape","id":"sh/8fmx83ut","slide":4,"bbox":[302,261,54,0]}
+{"kind":"shape","id":"sh/9gvy18ve","slide":4,"bbox":[593,261,54,0]}
+{"kind":"shape","id":"sh/md4f6tcn","slide":4,"bbox":[914,261,54,0]}
+{"kind":"shape","id":"sh/nedwzyd8","slide":4,"bbox":[198,420,250,82]}
+{"kind":"shape","id":"sh/0b2x43ux","slide":4,"bbox":[198,420,6,82]}
+{"kind":"textbox","id":"sh/lcbexov2","slide":4,"text":"轨迹来源","textPreview":"轨迹来源","textChars":4,"textLines":1,"bbox":[216,435,216,25]}
+{"kind":"textbox","id":"sh/ypkf2tcr","slide":4,"text":"当前：JSON 回放\n后续：iOS GPS","textPreview":"当前：JSON 回放 | 后续：iOS GPS","textChars":21,"textLines":2,"bbox":[216,465,220,22]}
+{"kind":"shape","id":"sh/zatwvydc","slide":4,"bbox":[564,420,300,82]}
+{"kind":"shape","id":"sh/cn2x0jel","slide":4,"bbox":[564,420,6,82]}
+{"kind":"textbox","id":"sh/dobetov6","slide":4,"text":"导航状态","textPreview":"导航状态","textChars":4,"textLines":1,"bbox":[582,435,266,25]}
+{"kind":"textbox","id":"sh/fi9g3ex8","slide":4,"text":"匹配位置、进度、下一动作、偏航","textPreview":"匹配位置、进度、下一动作、偏航","textChars":15,"textLines":1,"bbox":[582,465,270,22]}
+{"kind":"shape","id":"sh/eh0fa9gn","slide":4,"bbox":[960,420,250,82]}
+{"kind":"shape","id":"sh/1kry5ofy","slide":4,"bbox":[960,420,6,82]}
+{"kind":"textbox","id":"sh/gjixcjyd","slide":4,"text":"显示终端","textPreview":"显示终端","textChars":4,"textLines":1,"bbox":[978,435,216,25]}
+{"kind":"textbox","id":"sh/3mtg7yx4","slide":4,"text":"当前：本地 Web\n后续：AR-HUD / 车端","textPreview":"当前：本地 Web | 后续：AR-HUD / 车端","textChars":24,"textLines":2,"bbox":[978,465,220,22]}
+{"kind":"shape","id":"sh/2l0fetgj","slide":4,"bbox":[448,461,108,0]}
+{"kind":"shape","id":"sh/poby9ofa","slide":4,"bbox":[864,461,88,0]}
+{"kind":"textbox","id":"sh/on2hgjyp","slide":4,"text":"关键边界：OSRM 只负责路由与路网查询；MapLibre 只负责显示；FastAPI 负责把位置变成可消费的导航状态。","textPreview":"关键边界：OSRM 只负责路由与路网查询；MapLibre 只负责显示；FastAPI 负责把位置变成可消费的导航状态。","textChars":60,"textLines":1,"bbox":[72,565,1136,54]}
+{"kind":"textbox","id":"sh/batgbyx0","slide":4,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  04","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  04","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/u17jk7","slide":4,"text":"项目 ARCHITECTURE.md：OSRM 负责路网与路线，FastAPI 负责会话和导航协调，MapLibre 负责渲染。浏览器不直接调用 OSRM。"}
+{"kind":"slide","id":"sl/aqtmns","slide":5,"title":"05","textShapes":16}
+{"kind":"textbox","id":"sh/4fmh4rad","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/3edgvm98","slide":5,"text":"开源基座：复用成熟能力，保留业务边界","textPreview":"开源基座：复用成熟能力，保留业务边界","textChars":18,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/idkz2hsn","slide":5,"text":"不是从零实现路由、地图渲染或 API 框架，而是在适配层实现导航业务规则。","textPreview":"不是从零实现路由、地图渲染或 API 框架，而是在适配层实现导航业务规则。","textChars":37,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/hcbytwr2","slide":5,"bbox":[72,205,1136,104]}
+{"kind":"shape","id":"sh/gb2h0rah","slide":5,"bbox":[72,205,9,104]}
+{"kind":"textbox","id":"sh/vatgrm9w","slide":5,"text":"OSRM","textPreview":"OSRM","textChars":4,"textLines":1,"bbox":[105,227,185,30]}
+{"kind":"textbox","id":"sh/u9kzyhsb","slide":5,"text":"高性能开源路由引擎","textPreview":"高性能开源路由引擎","textChars":9,"textLines":1,"bbox":[290,223,270,28]}
+{"kind":"textbox","id":"sh/t8bypcrq","slide":5,"text":"汽车 profile、Route / Nearest / Match 能力","textPreview":"汽车 profile、Route / Nearest / Match 能力","textChars":37,"textLines":1,"bbox":[570,222,360,58]}
+{"kind":"textbox","id":"sh/8n2hw7al","slide":5,"text":"Project-OSRM/osrm-backend","textPreview":"Project-OSRM/osrm-backend","textChars":25,"textLines":1,"bbox":[948,242,220,21]}
+{"kind":"shape","id":"sh/mxcz218f","slide":5,"bbox":[72,335,1136,104]}
+{"kind":"shape","id":"sh/nyl0v690","slide":5,"bbox":[72,335,9,104]}
+{"kind":"textbox","id":"sh/ozuh4bql","slide":5,"text":"MapLibre GL JS","textPreview":"MapLibre GL JS","textChars":14,"textLines":1,"bbox":[105,357,185,30]}
+{"kind":"textbox","id":"sh/90nixgr6","slide":5,"text":"浏览器端开源地图渲染","textPreview":"浏览器端开源地图渲染","textChars":10,"textLines":1,"bbox":[290,353,270,28]}
+{"kind":"textbox","id":"sh/etczy18j","slide":5,"text":"离线 GeoJSON 图层、路线叠加、相机跟随","textPreview":"离线 GeoJSON 图层、路线叠加、相机跟随","textChars":23,"textLines":1,"bbox":[570,352,360,58]}
+{"kind":"textbox","id":"sh/zul0r694","slide":5,"text":"maplibre/maplibre-gl-js","textPreview":"maplibre/maplibre-gl-js","textChars":23,"textLines":1,"bbox":[948,372,220,21]}
+{"kind":"shape","id":"sh/0vuh0bq9","slide":5,"bbox":[72,465,1136,104]}
+{"kind":"shape","id":"sh/1w3itgru","slide":5,"bbox":[72,465,9,104]}
+{"kind":"textbox","id":"sh/qpszuh87","slide":5,"text":"FastAPI","textPreview":"FastAPI","textChars":7,"textLines":1,"bbox":[105,487,185,30]}
+{"kind":"textbox","id":"sh/rq10nm9s","slide":5,"text":"Python 服务框架","textPreview":"Python 服务框架","textChars":11,"textLines":1,"bbox":[290,483,270,28]}
+{"kind":"textbox","id":"sh/fahwvipk","slide":5,"text":"类型化 API、导航会话、WebSocket 状态推送","textPreview":"类型化 API、导航会话、WebSocket 状态推送","textChars":27,"textLines":1,"bbox":[570,482,360,58]}
+{"kind":"textbox","id":"sh/u98f2xoz","slide":5,"text":"fastapi/fastapi","textPreview":"fastapi/fastapi","textChars":15,"textLines":1,"bbox":[948,502,220,21]}
+{"kind":"textbox","id":"sh/hwzexs7q","slide":5,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  05","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  05","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/aqtmns","slide":5,"text":"开源参考：\nOSRM https://github.com/Project-OSRM/osrm-backend\nMapLibre GL JS https://github.com/maplibre/maplibre-gl-js\nFastAPI https://github.com/fastapi/fastapi\n仓库 package.json 与 pyproject.toml 分别声明 maplibre-gl、FastAPI 等依赖。"}
+{"kind":"slide","id":"sl/24kq03","slide":6,"title":"06","textShapes":15}
+{"kind":"textbox","id":"sh/vml0vu5o","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/wnuh4z69","slide":6,"text":"OSM 数据处理：一份原始地图，两条可追溯的离线产线","textPreview":"OSM 数据处理：一份原始地图，两条可追溯的离线产线","textChars":26,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/xo3ix4nu","slide":6,"text":"实验区域为北京局部路网。输入、边界、校验值、构建时间与命令均记录在元数据中。","textPreview":"实验区域为北京局部路网。输入、边界、校验值、构建时间与命令均记录在元数据中。","textChars":38,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/i9cz69oz","slide":6,"bbox":[72,205,1136,358]}
+{"kind":"shape","id":"sh/jal0ze5k","slide":6,"bbox":[72,270,190,82]}
+{"kind":"shape","id":"sh/kbu18j65","slide":6,"bbox":[72,270,6,82]}
+{"kind":"textbox","id":"sh/5cni14nq","slide":6,"text":"map.osm","textPreview":"map.osm","textChars":7,"textLines":1,"bbox":[90,285,156,25]}
+{"kind":"textbox","id":"sh/ydszu5ov","slide":6,"text":"原始 OSM XML\nGit 忽略","textPreview":"原始 OSM XML | Git 忽略","textChars":17,"textLines":2,"bbox":[90,315,160,22]}
+{"kind":"shape","id":"sh/ze10na5g","slide":6,"bbox":[262,311,50,0]}
+{"kind":"shape","id":"sh/n2lgfypg","slide":6,"bbox":[320,270,250,82]}
+{"kind":"shape","id":"sh/m1cfmt8v","slide":6,"bbox":[320,270,6,82]}
+{"kind":"textbox","id":"sh/9o3yho7m","slide":6,"text":"OSRM MLD","textPreview":"OSRM MLD","textChars":8,"textLines":1,"bbox":[338,285,216,25]}
+{"kind":"textbox","id":"sh/8nuhojq1","slide":6,"text":"extract → partition → customize\n汽车路网查询","textPreview":"extract → partition → customize | 汽车路网查询","textChars":38,"textLines":2,"bbox":[338,315,220,22]}
+{"kind":"shape","id":"sh/zy1gbepk","slide":6,"bbox":[570,311,62,0]}
+{"kind":"shape","id":"sh/yxsfi98z","slide":6,"bbox":[640,270,190,82]}
+{"kind":"shape","id":"sh/l03ydo7q","slide":6,"bbox":[640,270,6,82]}
+{"kind":"textbox","id":"sh/0zuxkjq5","slide":6,"text":"8 类 GeoJSON","textPreview":"8 类 GeoJSON","textChars":11,"textLines":1,"bbox":[658,285,156,25]}
+{"kind":"textbox","id":"sh/bu1g7up8","slide":6,"text":"道路 / 建筑 / 水系 / 绿地 / 用地\n道路名 / 地点名 / POI","textPreview":"道路 / 建筑 / 水系 / 绿地 / 用地 | 道路名 / 地点名 / POI","textChars":38,"textLines":2,"bbox":[658,315,160,22]}
+{"kind":"shape","id":"sh/qtsfe983","slide":6,"bbox":[830,311,152,0]}
+{"kind":"shape","id":"sh/ep8zqpsv","slide":6,"bbox":[990,270,190,82]}
+{"kind":"shape","id":"sh/fqhgzutg","slide":6,"bbox":[990,270,6,82]}
+{"kind":"textbox","id":"sh/grqhszal","slide":6,"text":"MapLibre","textPreview":"MapLibre","textChars":8,"textLines":1,"bbox":[1008,285,156,25]}
+{"kind":"textbox","id":"sh/1sjy14b6","slide":6,"text":"本地静态加载\n不依赖在线瓦片","textPreview":"本地静态加载 | 不依赖在线瓦片","textChars":14,"textLines":2,"bbox":[1008,315,160,22]}
+{"kind":"textbox","id":"sh/2tszu9sr","slide":6,"text":"数据治理","textPreview":"数据治理","textChars":4,"textLines":1,"bbox":[112,455,160,24]}
+{"kind":"textbox","id":"sh/3u103etc","slide":6,"text":"输入 SHA-256 · 地图边界 · 构建 UTC 时间 · 工具版本 · 完整命令","textPreview":"输入 SHA-256 · 地图边界 · 构建 UTC 时间 · 工具版本 · 完整命令","textChars":43,"textLines":1,"bbox":[272,455,750,24]}
+{"kind":"textbox","id":"sh/ovahwjax","slide":6,"text":"当前实验范围：39.86864–39.90006 N，116.36676–116.41706 E。原始 OSM、OSRM 文件、MBTiles 均不提交 Git。","textPreview":"当前实验范围：39.86864–39.90006 N，116.36676–116.41706 E。原始 OSM、OSRM 文件、MBTiles 均不提交 Git。","textChars":81,"textLines":1,"bbox":[72,590,1136,32]}
+{"kind":"textbox","id":"sh/pwji5obi","slide":6,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  06","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  06","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/24kq03","slide":6,"text":"资料来源：docs/data-build.md；data/metadata/map.osm-build.json；data/metadata/map.osm-maplibre-thematic-geojson-build.json。OSRM 使用 MLD 构建流程。"}
+{"kind":"slide","id":"sl/k4sqta","slide":7,"title":"07","textShapes":12}
+{"kind":"textbox","id":"sh/u18n2tgr","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/h4z6xofi","slide":7,"text":"离线可视化：以主题 GeoJSON 降低 MVP 复杂度","textPreview":"离线可视化：以主题 GeoJSON 降低 MVP 复杂度","textChars":28,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/w3q54jyx","slide":7,"text":"先交付可读、可离线的底图与导航叠加；地图规模扩大后无缝替换为 MBTiles 矢量瓦片。","textPreview":"先交付可读、可离线的底图与导航叠加；地图规模扩大后无缝替换为 MBTiles 矢量瓦片。","textChars":44,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/j6hozyx8","slide":7,"bbox":[72,210,530,330]}
+{"kind":"shape","id":"sh/i5876tgn","slide":7,"bbox":[115,265,390,0]}
+{"kind":"shape","id":"sh/58j618fe","slide":7,"bbox":[126,355,360,0]}
+{"kind":"shape","id":"sh/47ap83yt","slide":7,"bbox":[164,455,320,0]}
+{"kind":"shape","id":"sh/zaxonux4","slide":7,"bbox":[245,240,0,250]}
+{"kind":"shape","id":"sh/y9onu9gj","slide":7,"bbox":[380,235,0,270]}
+{"kind":"shape","id":"sh/ofedwz6t","slide":7,"bbox":[515,250,0,240]}
+{"kind":"shape","id":"sh/9gnup4ny","slide":7,"bbox":[118,285,410,160]}
+{"kind":"shape","id":"sh/mdwvu9on","slide":7,"bbox":[115,432,20,20]}
+{"kind":"shape","id":"sh/ne5cnu58","slide":7,"bbox":[515,273,20,20]}
+{"kind":"textbox","id":"sh/wjyd0j6p","slide":7,"text":"模拟离线导航视图","textPreview":"模拟离线导航视图","textChars":8,"textLines":1,"bbox":[108,505,240,26]}
+{"kind":"shape","id":"sh/x47utona","slide":7,"bbox":[652,225,520,78]}
+{"kind":"shape","id":"sh/ahwvy9oj","slide":7,"bbox":[652,225,8,78]}
+{"kind":"textbox","id":"sh/bi5cre54","slide":7,"text":"表达层","textPreview":"表达层","textChars":3,"textLines":1,"bbox":[676,241,110,25]}
+{"kind":"textbox","id":"sh/cnudof6l","slide":7,"text":"道路、建筑、水系、绿地、用地与标签分层渲染","textPreview":"道路、建筑、水系、绿地、用地与标签分层渲染","textChars":21,"textLines":1,"bbox":[790,238,350,50]}
+{"kind":"shape","id":"sh/d83uhkn6","slide":7,"bbox":[652,330,520,78]}
+{"kind":"shape","id":"sh/tsb25cvi","slide":7,"bbox":[652,330,8,78]}
+{"kind":"textbox","id":"sh/8r21w7ux","slide":7,"text":"导航层","textPreview":"导航层","textChars":3,"textLines":1,"bbox":[676,346,110,25]}
+{"kind":"textbox","id":"sh/7qtk3mdc","slide":7,"text":"主路线高亮、已通过路线灰化、箭头、旋转车标、下一转向","textPreview":"主路线高亮、已通过路线灰化、箭头、旋转车标、下一转向","textChars":26,"textLines":1,"bbox":[790,343,350,50]}
+{"kind":"shape","id":"sh/65kjuhc7","slide":7,"bbox":[652,435,520,78]}
+{"kind":"shape","id":"sh/hwv29wvu","slide":7,"bbox":[652,435,8,78]}
+{"kind":"textbox","id":"sh/gvm10ru9","slide":7,"text":"性能路径","textPreview":"性能路径","textChars":4,"textLines":1,"bbox":[676,451,110,25]}
+{"kind":"textbox","id":"sh/vudk7mdo","slide":7,"text":"当前主题 GeoJSON；更大范围与高缩放级别转 MBTiles / 矢量瓦片","textPreview":"当前主题 GeoJSON；更大范围与高缩放级别转 MBTiles / 矢量瓦片","textChars":39,"textLines":1,"bbox":[790,448,350,50]}
+{"kind":"textbox","id":"sh/utkjyhc3","slide":7,"text":"优化原则：不为当前约 10 MB 的实验地图提前引入 PBF / MBTiles 转换链复杂度。","textPreview":"优化原则：不为当前约 10 MB 的实验地图提前引入 PBF / MBTiles 转换链复杂度。","textChars":48,"textLines":1,"bbox":[72,590,1136,32]}
+{"kind":"textbox","id":"sh/p0v2dwbq","slide":7,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  07","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  07","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/k4sqta","slide":7,"text":"资料来源：ARCHITECTURE.md 第 4 节与 docs/data-build.md。当前为同一 OSM 构建的 8 类 GeoJSON，后续可替换为 MBTiles 而无需改变前端路由 API。"}
+{"kind":"slide","id":"sl/l9tada","slide":8,"title":"08","textShapes":17}
+{"kind":"textbox","id":"sh/f218by9s","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/03a9kjad","slide":8,"text":"MVP 当前成果：离线导航闭环已经可演示","textPreview":"MVP 当前成果：离线导航闭环已经可演示","textChars":20,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/1ojadory","slide":8,"text":"从选点到到达、从偏航到重新规划，均可在本地 Docker 环境复现。","textPreview":"从选点到到达、从偏航到重新规划，均可在本地 Docker 环境复现。","textChars":34,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/2pcrmtsj","slide":8,"bbox":[72,250,185,82]}
+{"kind":"shape","id":"sh/nqlsfy9o","slide":8,"bbox":[72,250,6,82]}
+{"kind":"textbox","id":"sh/oru9o3a9","slide":8,"text":"选择起终点","textPreview":"选择起终点","textChars":5,"textLines":1,"bbox":[90,265,151,25]}
+{"kind":"textbox","id":"sh/9s3ah8ru","slide":8,"text":"地图点击或预置端点","textPreview":"地图点击或预置端点","textChars":9,"textLines":1,"bbox":[90,295,155,22]}
+{"kind":"shape","id":"sh/it8ra9sz","slide":8,"bbox":[257,291,37,0]}
+{"kind":"shape","id":"sh/3uh83utk","slide":8,"bbox":[302,250,185,82]}
+{"kind":"shape","id":"sh/nahgfuts","slide":8,"bbox":[302,250,6,82]}
+{"kind":"textbox","id":"sh/m98f6pcn","slide":8,"text":"路线规划","textPreview":"路线规划","textChars":4,"textLines":1,"bbox":[320,265,151,25]}
+{"kind":"textbox","id":"sh/9czyhkby","slide":8,"text":"距离、时长、逐步转向","textPreview":"距离、时长、逐步转向","textChars":10,"textLines":1,"bbox":[320,295,155,22]}
+{"kind":"shape","id":"sh/obqx8zud","slide":8,"bbox":[487,291,37,0]}
+{"kind":"shape","id":"sh/zmxgbatw","slide":8,"bbox":[532,250,185,82]}
+{"kind":"shape","id":"sh/elof25cb","slide":8,"bbox":[532,250,6,82]}
+{"kind":"textbox","id":"sh/18fydkb2","slide":8,"text":"开始模拟回放","textPreview":"开始模拟回放","textChars":6,"textLines":1,"bbox":[550,265,151,25]}
+{"kind":"textbox","id":"sh/0n6x4fuh","slide":8,"text":"暂停、继续、重播","textPreview":"暂停、继续、重播","textChars":8,"textLines":1,"bbox":[550,295,155,22]}
+{"kind":"shape","id":"sh/rixw7at0","slide":8,"bbox":[717,291,37,0]}
+{"kind":"shape","id":"sh/qh4fy5cf","slide":8,"bbox":[762,250,185,82]}
+{"kind":"shape","id":"sh/ud4zq5w7","slide":8,"bbox":[762,250,6,82]}
+{"kind":"textbox","id":"sh/fedgjqxs","slide":8,"text":"道路匹配\n与导航状态","textPreview":"道路匹配 | 与导航状态","textChars":10,"textLines":2,"bbox":[780,265,151,25]}
+{"kind":"textbox","id":"sh/gfmhsved","slide":8,"text":"匹配位置、进度、下一动作","textPreview":"匹配位置、进度、下一动作","textChars":12,"textLines":1,"bbox":[780,295,155,22]}
+{"kind":"shape","id":"sh/hgvyl0fy","slide":8,"bbox":[947,291,37,0]}
+{"kind":"shape","id":"sh/2h4zu5w3","slide":8,"bbox":[992,250,185,82]}
+{"kind":"shape","id":"sh/3ixgnaxo","slide":8,"bbox":[992,250,6,82]}
+{"kind":"textbox","id":"sh/4j6hwfe9","slide":8,"text":"到达 / 偏航重算","textPreview":"到达 / 偏航重算","textChars":9,"textLines":1,"bbox":[1010,265,151,25]}
+{"kind":"textbox","id":"sh/pkfypkfu","slide":8,"text":"替换路线并继续","textPreview":"替换路线并继续","textChars":7,"textLines":1,"bbox":[1010,295,155,22]}
+{"kind":"shape","id":"sh/qlozypwf","slide":8,"bbox":[72,410,1136,160]}
+{"kind":"textbox","id":"sh/r6xgrax0","slide":8,"text":"当前验证点","textPreview":"当前验证点","textChars":5,"textLines":1,"bbox":[104,440,190,28]}
+{"kind":"textbox","id":"sh/lcjad83e","slide":8,"text":"正常路线  ·  无可达路线  ·  路网外定位点  ·  偏航重算\n正常轨迹到达 arrived；偏航轨迹要求恰好触发一次路线替换。","textPreview":"正常路线  ·  无可达路线  ·  路网外定位点  ·  偏航重算 | 正常轨迹到达 arrived；偏航轨迹要求恰好触发一次路线替换。","textChars":67,"textLines":2,"bbox":[330,431,710,70]}
+{"kind":"textbox","id":"sh/krat432t","slide":8,"text":"运行方式：bash scripts/demo.sh 启动本地三容器；bash scripts/smoke_test.sh 验证闭环。","textPreview":"运行方式：bash scripts/demo.sh 启动本地三容器；bash scripts/smoke_test.sh 验证闭环。","textChars":66,"textLines":1,"bbox":[104,530,900,22]}
+{"kind":"textbox","id":"sh/zq1sbyl8","slide":8,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  08","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  08","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/l9tada","slide":8,"text":"资料来源：README.md、docs/demo-runbook.md、DEVELOPMENT.md。此页描述项目定义的验证标准和演示闭环，不把其表述为生产实车验证。"}
+{"kind":"slide","id":"sl/po85wp","slide":9,"title":"09","textShapes":23}
+{"kind":"textbox","id":"sh/pk72d83q","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/2hgj2t4z","slide":9,"text":"实车路径一：通过 iOS 接入 GPS，保持导航内核不变","textPreview":"实车路径一：通过 iOS 接入 GPS，保持导航内核不变","textChars":28,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/3ipkbylk","slide":9,"text":"建议把 iPhone 视为定位传感器与上行网关，先解决稳定传输、时间同步与断连恢复。","textPreview":"建议把 iPhone 视为定位传感器与上行网关，先解决稳定传输、时间同步与断连恢复。","textChars":42,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/gvy103mt","slide":9,"bbox":[72,250,260,82]}
+{"kind":"shape","id":"sh/hw729o3e","slide":9,"bbox":[72,250,6,82]}
+{"kind":"textbox","id":"sh/utgjyt43","slide":9,"text":"iPhone / iOS","textPreview":"iPhone / iOS","textChars":12,"textLines":1,"bbox":[90,265,226,25]}
+{"kind":"textbox","id":"sh/fupk7ylo","slide":9,"text":"Core Location：WGS-84\n位置、航向、速度、精度、时间","textPreview":"Core Location：WGS-84 | 位置、航向、速度、精度、时间","textChars":35,"textLines":2,"bbox":[90,295,230,22]}
+{"kind":"shape","id":"sh/sre1wjmx","slide":9,"bbox":[420,250,280,82]}
+{"kind":"shape","id":"sh/tsn25o3i","slide":9,"bbox":[420,250,6,82]}
+{"kind":"textbox","id":"sh/58z61gvy","slide":9,"text":"传输适配层","textPreview":"传输适配层","textChars":5,"textLines":1,"bbox":[438,265,246,25]}
+{"kind":"textbox","id":"sh/4nq5svud","slide":9,"text":"局域网 WebSocket 优先\n序列号、鉴权、心跳、重连","textPreview":"局域网 WebSocket 优先 | 序列号、鉴权、心跳、重连","textChars":29,"textLines":2,"bbox":[438,295,250,22]}
+{"kind":"shape","id":"sh/jmhozqds","slide":9,"bbox":[800,250,300,82]}
+{"kind":"shape","id":"sh/il8nqlc7","slide":9,"bbox":[800,250,6,82]}
+{"kind":"textbox","id":"sh/hkz6xgvm","slide":9,"text":"导航协调层","textPreview":"导航协调层","textChars":5,"textLines":1,"bbox":[818,265,266,25]}
+{"kind":"textbox","id":"sh/wj65obuh","slide":9,"text":"字段校验、时序处理\n道路吸附、偏航判断","textPreview":"字段校验、时序处理 | 道路吸附、偏航判断","textChars":19,"textLines":2,"bbox":[818,295,270,22]}
+{"kind":"shape","id":"sh/vixov6dw","slide":9,"bbox":[332,291,80,0]}
+{"kind":"shape","id":"sh/uhonm1cb","slide":9,"bbox":[700,291,92,0]}
+{"kind":"shape","id":"sh/9gfmtwvq","slide":9,"bbox":[72,450,260,105]}
+{"kind":"textbox","id":"sh/8f65kbu5","slide":9,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[90,467,28,24]}
+{"kind":"textbox","id":"sh/0za5gb21","slide":9,"text":"定义稳定定位协议","textPreview":"定义稳定定位协议","textChars":8,"textLines":1,"bbox":[127,464,184,24]}
+{"kind":"textbox","id":"sh/10j69g3m","slide":9,"text":"lat / lon / heading / speed_mps / accuracy_m / timestamp","textPreview":"lat / lon / heading / speed_mps / accuracy_m / timestamp","textChars":56,"textLines":1,"bbox":[90,500,225,38]}
+{"kind":"shape","id":"sh/ex8ne1kv","slide":9,"bbox":[356,450,260,105]}
+{"kind":"textbox","id":"sh/zy1o76lg","slide":9,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[374,467,28,24]}
+{"kind":"textbox","id":"sh/cvq5cr25","slide":9,"text":"端到端回放对照","textPreview":"端到端回放对照","textChars":7,"textLines":1,"bbox":[411,464,184,24]}
+{"kind":"textbox","id":"sh/dwz65w3a","slide":9,"text":"同一轨迹输入应产生同一状态序列","textPreview":"同一轨迹输入应产生同一状态序列","textChars":15,"textLines":1,"bbox":[374,500,225,38]}
+{"kind":"shape","id":"sh/qt8nahkz","slide":9,"bbox":[640,450,260,105]}
+{"kind":"textbox","id":"sh/ruho3mlk","slide":9,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[658,467,28,24]}
+{"kind":"textbox","id":"sh/wrupov29","slide":9,"text":"道路匹配上线","textPreview":"道路匹配上线","textChars":6,"textLines":1,"bbox":[695,464,184,24]}
+{"kind":"textbox","id":"sh/xs36h03u","slide":9,"text":"前端只显示匹配后位置，保留原始点供诊断","textPreview":"前端只显示匹配后位置，保留原始点供诊断","textChars":19,"textLines":1,"bbox":[658,500,225,38]}
+{"kind":"shape","id":"sh/7m587u5w","slide":9,"bbox":[924,450,260,105]}
+{"kind":"textbox","id":"sh/6lwrep4b","slide":9,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[942,467,28,24]}
+{"kind":"textbox","id":"sh/tonq94n2","slide":9,"text":"车端异常处理","textPreview":"车端异常处理","textChars":6,"textLines":1,"bbox":[979,464,184,24]}
+{"kind":"textbox","id":"sh/sne9gzmh","slide":9,"text":"弱网、漂移、断连、低精度与重新获得定位","textPreview":"弱网、漂移、断连、低精度与重新获得定位","textChars":19,"textLines":1,"bbox":[942,500,225,38]}
+{"kind":"textbox","id":"sh/fqp8bu5s","slide":9,"text":"接口原则：iOS 仅替换“定位来源”适配器，不直接驱动地图，不将原始 GPS 写回 OSM。","textPreview":"接口原则：iOS 仅替换“定位来源”适配器，不直接驱动地图，不将原始 GPS 写回 OSM。","textChars":46,"textLines":1,"bbox":[72,600,1136,28]}
+{"kind":"textbox","id":"sh/upgrip4n","slide":9,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  09","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  09","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/po85wp","slide":9,"text":"这是后续设计建议，尚未在 MVP 实现。数据契约沿用项目 DATA_POLICY.md 中的 WGS-84 模型。传输方案建议局域网 WebSocket 优先，后续可评估 USB / BLE 等链路。"}
+{"kind":"slide","id":"sl/1buxyy","slide":10,"title":"10","textShapes":15}
+{"kind":"textbox","id":"sh/m1k7ehgb","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/9ob69wfm","slide":10,"text":"实车路径二：视觉模型作为“确认与感知”能力接入","textPreview":"实车路径二：视觉模型作为“确认与感知”能力接入","textChars":23,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/8n2pgry1","slide":10,"text":"视觉不替代地图路由；它为接近目的地、道路事件或 HUD 提示提供附加证据。","textPreview":"视觉不替代地图路由；它为接近目的地、道路事件或 HUD 提示提供附加证据。","textChars":37,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/zy9o3mxk","slide":10,"bbox":[72,230,230,82]}
+{"kind":"shape","id":"sh/yx07ahgz","slide":10,"bbox":[72,230,6,82]}
+{"kind":"textbox","id":"sh/l0r65wfq","slide":10,"text":"相机输入","textPreview":"相机输入","textChars":4,"textLines":1,"bbox":[90,245,196,25]}
+{"kind":"textbox","id":"sh/kzipcry5","slide":10,"text":"车载或手机相机\n帧时间戳与设备标识","textPreview":"车载或手机相机 | 帧时间戳与设备标识","textChars":17,"textLines":2,"bbox":[90,275,200,22]}
+{"kind":"shape","id":"sh/bu9oz2x8","slide":10,"bbox":[362,230,250,82]}
+{"kind":"shape","id":"sh/at076xg3","slide":10,"bbox":[362,230,6,82]}
+{"kind":"textbox","id":"sh/kn6547uh","slide":10,"text":"视觉推理服务","textPreview":"视觉推理服务","textChars":6,"textLines":1,"bbox":[380,245,216,25]}
+{"kind":"textbox","id":"sh/lozmxcbm","slide":10,"text":"检测 / 识别 / 置信度\n可本地部署","textPreview":"检测 / 识别 / 置信度 | 可本地部署","textChars":19,"textLines":2,"bbox":[380,275,220,22]}
+{"kind":"shape","id":"sh/y1o32hcb","slide":10,"bbox":[744,230,250,82]}
+{"kind":"shape","id":"sh/jmx4vmtw","slide":10,"bbox":[744,230,6,82]}
+{"kind":"textbox","id":"sh/wz6l07u5","slide":10,"text":"事件适配层","textPreview":"事件适配层","textChars":5,"textLines":1,"bbox":[762,245,216,25]}
+{"kind":"textbox","id":"sh/x0fmtcbq","slide":10,"text":"时空对齐、去抖\n限定输出事件模型","textPreview":"时空对齐、去抖 | 限定输出事件模型","textChars":16,"textLines":2,"bbox":[762,275,220,22]}
+{"kind":"shape","id":"sh/axo3yxcz","slide":10,"bbox":[1052,230,156,82]}
+{"kind":"shape","id":"sh/byx4r2tk","slide":10,"bbox":[1052,230,6,82]}
+{"kind":"textbox","id":"sh/gvq5cra9","slide":10,"text":"导航体验层","textPreview":"导航体验层","textChars":5,"textLines":1,"bbox":[1070,245,122,25]}
+{"kind":"textbox","id":"sh/hwjm5wbu","slide":10,"text":"到达确认、提示增强\n不直接改写路由","textPreview":"到达确认、提示增强 | 不直接改写路由","textChars":17,"textLines":2,"bbox":[1070,275,126,22]}
+{"kind":"shape","id":"sh/pcfmpw3y","slide":10,"bbox":[302,271,52,0]}
+{"kind":"shape","id":"sh/4b6lgr2t","slide":10,"bbox":[612,271,124,0]}
+{"kind":"shape","id":"sh/3ax4nml8","slide":10,"bbox":[994,271,50,0]}
+{"kind":"shape","id":"sh/2943e1kn","slide":10,"bbox":[72,420,1136,145]}
+{"kind":"textbox","id":"sh/h8vmlw32","slide":10,"text":"优先落地场景","textPreview":"优先落地场景","textChars":6,"textLines":1,"bbox":[105,450,190,27]}
+{"kind":"textbox","id":"sh/g7mlcr2h","slide":10,"text":"接近终点时识别商铺招牌 / 入口，作为“到达确认”的辅助信号。","textPreview":"接近终点时识别商铺招牌 / 入口，作为“到达确认”的辅助信号。","textChars":31,"textLines":1,"bbox":[335,444,730,32]}
+{"kind":"textbox","id":"sh/f6d4jmlw","slide":10,"text":"约束：只输出结构化感知事件与置信度；导航会话决定是否展示或触发业务动作；保留人工验证与失败降级。","textPreview":"约束：只输出结构化感知事件与置信度；导航会话决定是否展示或触发业务动作；保留人工验证与失败降级。","textChars":48,"textLines":1,"bbox":[335,495,750,32]}
+{"kind":"textbox","id":"sh/ul43ah4b","slide":10,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  10","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  10","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/1buxyy","slide":10,"text":"这是后续设计建议，当前 MVP 不包含 OCR、检测模型或真实视频。项目 ARCHITECTURE.md 已定义 OCR 只在接近终点时验证商铺招牌的边界。"}
+{"kind":"slide","id":"sl/pwyy9d","slide":11,"title":"11","textShapes":17}
+{"kind":"textbox","id":"sh/4vi1cvep","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[72,48,46,22]}
+{"kind":"textbox","id":"sh/3u90jqd4","slide":11,"text":"下一阶段计划：从可演示闭环走向可路测闭环","textPreview":"下一阶段计划：从可演示闭环走向可路测闭环","textChars":20,"textLines":1,"bbox":[72,76,1120,52]}
+{"kind":"textbox","id":"sh/2t0jalwz","slide":11,"text":"每一步都以可重复输入、可观测状态和明确验收为前提。","textPreview":"每一步都以可重复输入、可观测状态和明确验收为前提。","textChars":25,"textLines":1,"bbox":[72,132,1100,34]}
+{"kind":"shape","id":"sh/hs7ihgve","slide":11,"bbox":[72,205,1136,70]}
+{"kind":"shape","id":"sh/gry18bet","slide":11,"bbox":[72,205,10,70]}
+{"kind":"textbox","id":"sh/fqp0f6d8","slide":11,"text":"近期","textPreview":"近期","textChars":2,"textLines":1,"bbox":[110,226,90,22]}
+{"kind":"textbox","id":"sh/upgj61wn","slide":11,"text":"iOS 定位协议与回放工具","textPreview":"iOS 定位协议与回放工具","textChars":13,"textLines":1,"bbox":[240,221,310,26]}
+{"kind":"textbox","id":"sh/1ob2t0vi","slide":11,"text":"把手机定位数据导入现有模拟器；验证时间戳、精度与断连行为","textPreview":"把手机定位数据导入现有模拟器；验证时间戳、精度与断连行为","textChars":28,"textLines":1,"bbox":[575,220,580,38]}
+{"kind":"shape","id":"sh/0n21kfux","slide":11,"bbox":[72,297,1136,70]}
+{"kind":"shape","id":"sh/md4vudsr","slide":11,"bbox":[72,297,10,70]}
+{"kind":"textbox","id":"sh/nedwnitc","slide":11,"text":"中期","textPreview":"中期","textChars":2,"textLines":1,"bbox":[110,318,90,22]}
+{"kind":"textbox","id":"sh/8fmxwnax","slide":11,"text":"实车定位适配与路测","textPreview":"实车定位适配与路测","textChars":9,"textLines":1,"bbox":[240,313,310,26]}
+{"kind":"textbox","id":"sh/9gfepsbi","slide":11,"text":"道路匹配、偏航阈值、状态推送的实车数据验证","textPreview":"道路匹配、偏航阈值、状态推送的实车数据验证","textChars":21,"textLines":1,"bbox":[575,312,580,38]}
+{"kind":"shape","id":"sh/yp4vqdsv","slide":11,"bbox":[72,389,1136,70]}
+{"kind":"shape","id":"sh/zqdwjitg","slide":11,"bbox":[72,389,10,70]}
+{"kind":"textbox","id":"sh/0rmdsna1","slide":11,"text":"后续","textPreview":"后续","textChars":2,"textLines":1,"bbox":[110,410,90,22]}
+{"kind":"textbox","id":"sh/lsvel8bm","slide":11,"text":"本地视觉事件服务","textPreview":"本地视觉事件服务","textChars":8,"textLines":1,"bbox":[240,405,310,26]}
+{"kind":"textbox","id":"sh/ilofmxsz","slide":11,"text":"先做终点确认，再扩展到道路感知提示","textPreview":"先做终点确认，再扩展到道路感知提示","textChars":17,"textLines":1,"bbox":[575,404,580,38]}
+{"kind":"shape","id":"sh/jmxwv2tk","slide":11,"bbox":[72,481,1136,70]}
+{"kind":"shape","id":"sh/fq9snu9w","slide":11,"bbox":[72,481,10,70]}
+{"kind":"textbox","id":"sh/ep0bep8r","slide":11,"text":"规模化","textPreview":"规模化","textChars":3,"textLines":1,"bbox":[110,502,90,22]}
+{"kind":"textbox","id":"sh/1srup4r2","slide":11,"text":"MBTiles 与车端显示集成","textPreview":"MBTiles 与车端显示集成","textChars":15,"textLines":1,"bbox":[240,497,310,26]}
+{"kind":"textbox","id":"sh/gritgzqh","slide":11,"text":"扩大离线地图范围，接入 HUD / 车机显示终端","textPreview":"扩大离线地图范围，接入 HUD / 车机显示终端","textChars":24,"textLines":1,"bbox":[575,496,580,38]}
+{"kind":"textbox","id":"sh/3u9cre98","slide":11,"text":"需要持续守住的约束：离线优先、WGS-84 一致、适配层隔离外部服务、真实数据最小化且合规使用。","textPreview":"需要持续守住的约束：离线优先、WGS-84 一致、适配层隔离外部服务、真实数据最小化且合规使用。","textChars":48,"textLines":1,"bbox":[72,605,1136,30]}
+{"kind":"textbox","id":"sh/2t0bi98n","slide":11,"text":"离线导航系统 MVP 汇报  ·  2026.09  ·  11","textPreview":"离线导航系统 MVP 汇报  ·  2026.09  ·  11","textChars":32,"textLines":1,"bbox":[72,680,1136,18]}
+{"kind":"notes","id":"nt/pwyy9d","slide":11,"text":"本页为规划，不代表现已具备的能力。计划沿用现有架构边界，避免 iOS、视觉模型或车端 UI 直接耦合 OSRM / MapLibre 内核。"}
+{"kind":"slide","id":"sl/p13zy7","slide":12,"title":"当前 MVP 已验证：离线路由、离线地图、","textShapes":4}
+{"kind":"shape","id":"sh/sjapsn65","slide":12,"bbox":[72,74,110,7]}
+{"kind":"textbox","id":"sh/ryh8jipk","slide":12,"text":"当前 MVP 已验证：离线路由、离线地图、\n模拟定位与偏航重算。","textPreview":"当前 MVP 已验证：离线路由、离线地图、 | 模拟定位与偏航重算。","textChars":32,"textLines":2,"bbox":[72,150,980,150]}
+{"kind":"textbox","id":"sh/6x87qdoz","slide":12,"text":"下一步的核心不是扩展功能清单，而是把真实传感器接入现有的、可观测且可替换的导航内核。","textPreview":"下一步的核心不是扩展功能清单，而是把真实传感器接入现有的、可观测且可替换的导航内核。","textChars":42,"textLines":1,"bbox":[76,372,820,70]}
+{"kind":"shape","id":"sh/1ojqps7m","slide":12,"bbox":[76,515,850,2]}
+{"kind":"textbox","id":"sh/gna9w761","slide":12,"text":"Q & A","textPreview":"Q & A","textChars":5,"textLines":1,"bbox":[76,560,200,44]}
+{"kind":"textbox","id":"sh/fm18n2pg","slide":12,"text":"架构、数据链路与实车演进","textPreview":"架构、数据链路与实车演进","textChars":12,"textLines":1,"bbox":[76,614,450,25]}
+{"kind":"notes","id":"nt/p13zy7","slide":12,"text":"感谢。可根据听众继续展开数据构建、偏航匹配算法、iOS 传输协议或视觉服务边界。"}
