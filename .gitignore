@@ -22,3 +22,5 @@ dist/
 gps-receiver*.log
 .DS_Store
 .superpowers/
+ios/GpsSender/GpsSender.xcodeproj/xcuserdata/
+ios/GpsSender/GpsSender.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/

@@ -1,15 +1,436 @@
 // !$*UTF8*$!
 {
- archiveVersion = 1; classes = {}; objectVersion = 56;
- objects = {
- /* Minimal Xcode project declaration. Xcode resolves the source group below. */
-  1D000001 /* Project object */ = {isa = PBXProject; attributes = {LastUpgradeCheck = 1500;}; buildConfigurationList = 1D000002; compatibilityVersion = "Xcode 14.0"; mainGroup = 1D000003; productRefGroup = 1D000003; targets = (1D000004,); };
-  1D000002 = {isa = XCConfigurationList; buildConfigurations = (1D000005,); defaultConfigurationName = Debug; };
-  1D000003 = {isa = PBXGroup; children = (); sourceTree = "<group>"; };
-  1D000004 = {isa = PBXNativeTarget; buildConfigurationList = 1D000006; buildPhases = (); name = GpsSender; productName = GpsSender; productType = "com.apple.product-type.application"; };
-  1D000005 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
-  1D000006 = {isa = XCConfigurationList; buildConfigurations = (1D000007,); defaultConfigurationName = Debug; };
-  1D000007 = {isa = XCBuildConfiguration; buildSettings = {PRODUCT_BUNDLE_IDENTIFIER = com.navigation-system.GpsSender; INFOPLIST_FILE = GpsSender/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SWIFT_VERSION = 5.0;}; name = Debug; };
- };
- rootObject = 1D000001;
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1000001 /* GpsSenderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001 /* GpsSenderApp.swift */; };
+		A1000002 /* GpsFixPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000002 /* GpsFixPayload.swift */; };
+		A1000003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000003 /* ContentView.swift */; };
+		A1000004 /* GpsTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000004 /* GpsTransport.swift */; };
+		A1000005 /* RealtimeSendQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000005 /* RealtimeSendQueue.swift */; };
+		A1000006 /* LocationSenderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000006 /* LocationSenderViewModel.swift */; };
+		A1000007 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000007 /* KeychainStore.swift */; };
+		A1000008 /* GpsSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000008 /* GpsSenderTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A2000001 /* GpsSenderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GpsSenderApp.swift; sourceTree = "<group>"; };
+		A2000002 /* GpsFixPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GpsFixPayload.swift; sourceTree = "<group>"; };
+		A2000003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A2000004 /* GpsTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GpsTransport.swift; sourceTree = "<group>"; };
+		A2000005 /* RealtimeSendQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeSendQueue.swift; sourceTree = "<group>"; };
+		A2000006 /* LocationSenderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSenderViewModel.swift; sourceTree = "<group>"; };
+		A2000007 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		A2000008 /* GpsSenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GpsSenderTests.swift; sourceTree = "<group>"; };
+		A2000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A2000010 /* GpsSender.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GpsSender.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2000011 /* GpsSenderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GpsSenderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A3000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = PBXBuildActionMaskNone;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A3000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = PBXBuildActionMaskNone;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A4000001 = {
+			isa = PBXGroup;
+			children = (
+				A4000002 /* GpsSender */,
+				A4000003 /* GpsSenderTests */,
+				A4000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A4000002 /* GpsSender */ = {
+			isa = PBXGroup;
+			children = (
+				A2000001 /* GpsSenderApp.swift */,
+				A4000005 /* Models */,
+				A4000006 /* Views */,
+				A4000007 /* Services */,
+				A2000009 /* Info.plist */,
+			);
+			path = GpsSender;
+			sourceTree = "<group>";
+		};
+		A4000003 /* GpsSenderTests */ = {
+			isa = PBXGroup;
+			children = (
+				A2000008 /* GpsSenderTests.swift */,
+			);
+			path = GpsSenderTests;
+			sourceTree = "<group>";
+		};
+		A4000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A2000010 /* GpsSender.app */,
+				A2000011 /* GpsSenderTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A4000005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A2000002 /* GpsFixPayload.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A4000006 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A2000003 /* ContentView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A4000007 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A2000004 /* GpsTransport.swift */,
+				A2000005 /* RealtimeSendQueue.swift */,
+				A2000006 /* LocationSenderViewModel.swift */,
+				A2000007 /* KeychainStore.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A5000001 /* GpsSender */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A6000003 /* Build configuration list for PBXNativeTarget "GpsSender" */;
+			buildPhases = (
+				A7000001 /* Sources */,
+				A3000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GpsSender;
+			productName = GpsSender;
+			productReference = A2000010 /* GpsSender.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A5000002 /* GpsSenderTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A6000004 /* Build configuration list for PBXNativeTarget "GpsSenderTests" */;
+			buildPhases = (
+				A7000002 /* Sources */,
+				A3000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A8000001 /* PBXTargetDependency */,
+			);
+			name = GpsSenderTests;
+			productName = GpsSenderTests;
+			productReference = A2000011 /* GpsSenderTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A9000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A5000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					A5000002 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = A5000001;
+					};
+				};
+			};
+			buildConfigurationList = A6000001 /* Build configuration list for PBXProject "GpsSender" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A4000001;
+			productRefGroup = A4000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A5000001 /* GpsSender */,
+				A5000002 /* GpsSenderTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A7000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = PBXBuildActionMaskNone;
+			files = (
+				A1000001 /* GpsSenderApp.swift in Sources */,
+				A1000002 /* GpsFixPayload.swift in Sources */,
+				A1000003 /* ContentView.swift in Sources */,
+				A1000004 /* GpsTransport.swift in Sources */,
+				A1000005 /* RealtimeSendQueue.swift in Sources */,
+				A1000006 /* LocationSenderViewModel.swift in Sources */,
+				A1000007 /* KeychainStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = PBXBuildActionMaskNone;
+			files = (
+				A1000008 /* GpsSenderTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A8000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5000001 /* GpsSender */;
+			targetProxy = {
+				isa = PBXContainerItemProxy;
+				containerPortal = A9000001 /* Project object */;
+				proxyType = 1;
+				remoteGlobalIDString = A5000001;
+				remoteInfo = GpsSender;
+			};
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B1000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_LITERAL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INCOMPATIBLE_LIBRARY_LINKING_FLAGS = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_QUARTZ_CORE_USAGE = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B1000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_LITERAL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INCOMPATIBLE_LIBRARY_LINKING_FLAGS = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_QUARTZ_CORE_USAGE = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B1000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KSHTJVG2RR;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GpsSender/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.navigation-system.GpsSender";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B1000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KSHTJVG2RR;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GpsSender/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.navigation-system.GpsSender";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		B1000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KSHTJVG2RR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.navigation-system.GpsSenderTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GpsSender.app/GpsSender";
+			};
+			name = Debug;
+		};
+		B1000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KSHTJVG2RR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.navigation-system.GpsSenderTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GpsSender.app/GpsSender";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A6000001 /* Build configuration list for PBXProject "GpsSender" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1000001 /* Debug */,
+				B1000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A6000003 /* Build configuration list for PBXNativeTarget "GpsSender" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1000003 /* Debug */,
+				B1000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A6000004 /* Build configuration list for PBXNativeTarget "GpsSenderTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1000005 /* Debug */,
+				B1000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = A9000001 /* Project object */;
 }
