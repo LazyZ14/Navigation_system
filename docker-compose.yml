@@ -13,10 +13,12 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       OSRM_BASE_URL: http://osrm:5000
+      GPS_DEVICE_TOKENS_JSON: "${GPS_DEVICE_TOKENS_JSON:-{}}"
+      GPS_MAX_ACTIVE_STREAMS: "${GPS_MAX_ACTIVE_STREAMS:-100}"
     depends_on:
       - osrm
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${GPS_LAN_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     restart: "no"
   frontend:
     build:

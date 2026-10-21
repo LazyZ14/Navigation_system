@@ -18,5 +18,7 @@ node_modules/
 dist/
 .vite/
 *.log
+.env.gps.local
+gps-receiver*.log
 .DS_Store
 .superpowers/
