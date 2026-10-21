@@ -1,0 +1,15 @@
+// !$*UTF8*$!
+{
+ archiveVersion = 1; classes = {}; objectVersion = 56;
+ objects = {
+ /* Minimal Xcode project declaration. Xcode resolves the source group below. */
+  1D000001 /* Project object */ = {isa = PBXProject; attributes = {LastUpgradeCheck = 1500;}; buildConfigurationList = 1D000002; compatibilityVersion = "Xcode 14.0"; mainGroup = 1D000003; productRefGroup = 1D000003; targets = (1D000004,); };
+  1D000002 = {isa = XCConfigurationList; buildConfigurations = (1D000005,); defaultConfigurationName = Debug; };
+  1D000003 = {isa = PBXGroup; children = (); sourceTree = "<group>"; };
+  1D000004 = {isa = PBXNativeTarget; buildConfigurationList = 1D000006; buildPhases = (); name = GpsSender; productName = GpsSender; productType = "com.apple.product-type.application"; };
+  1D000005 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
+  1D000006 = {isa = XCConfigurationList; buildConfigurations = (1D000007,); defaultConfigurationName = Debug; };
+  1D000007 = {isa = XCBuildConfiguration; buildSettings = {PRODUCT_BUNDLE_IDENTIFIER = com.navigation-system.GpsSender; INFOPLIST_FILE = GpsSender/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SWIFT_VERSION = 5.0;}; name = Debug; };
+ };
+ rootObject = 1D000001;
+}
