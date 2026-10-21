@@ -215,13 +215,14 @@
 		A8000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A5000001 /* GpsSender */;
-			targetProxy = {
-				isa = PBXContainerItemProxy;
-				containerPortal = A9000001 /* Project object */;
-				proxyType = 1;
-				remoteGlobalIDString = A5000001;
-				remoteInfo = GpsSender;
-			};
+			targetProxy = A8000002 /* PBXContainerItemProxy */;
+		};
+		A8000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A9000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5000001;
+			remoteInfo = GpsSender;
 		};
 /* End PBXTargetDependency section */
 
