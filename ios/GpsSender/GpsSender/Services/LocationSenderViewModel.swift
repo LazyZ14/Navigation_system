@@ -9,13 +9,22 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     @Published var status = "未开始"
     @Published var latestLocation = "尚无定位"
     
+    // Configurable send interval (seconds)
+    var minSendInterval: TimeInterval = 0.2
+    
     // Diagnostic state
     @Published var lastLocationCallbackTime: Date?
     @Published var lastEnqueueTime: Date?
     @Published var lastSendSuccessTime: Date?
     @Published var pendingCount: Int = 0
     @Published var lastHttpStatusCode: Int?
-
+    
+    // Performance metrics
+    @Published var avgSampleInterval: TimeInterval = 0  // Average time between location callbacks
+    @Published var avgSendInterval: TimeInterval = 0    // Average time between successful sends
+    @Published var avgLocationAge: TimeInterval = 0     // Average age of location data when sent
+    @Published var avgHttpLatency: TimeInterval = 0     // Average HTTP round-trip time
+    
     private let manager = CLLocationManager()
     private let transport = GpsTransport()
     private var queue = RealtimeSendQueue()
@@ -26,12 +35,20 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     private var sendTask: Task<Void, Never>?
     private let defaults = UserDefaults.standard
     private let keychainService = "com.navigation-system.GpsSender"
+    
+    // Metrics tracking
+    private var sampleIntervals: [TimeInterval] = []
+    private var sendIntervals: [TimeInterval] = []
+    private var locationAges: [TimeInterval] = []
+    private var httpLatencies: [TimeInterval] = []
+    private let maxMetricsSamples = 50
 
     override init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 2
+        // Optimized for vehicle navigation: higher frequency, sensor fusion
+        manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+        manager.distanceFilter = kCLDistanceFilterNone
         manager.pausesLocationUpdatesAutomatically = false
         configuration.host = defaults.string(forKey: "gpsHost") ?? ""
         configuration.port = defaults.string(forKey: "gpsPort") ?? "8000"
@@ -51,6 +68,11 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         guard !configuration.host.isEmpty, !configuration.token.isEmpty else { status = "请填写主机地址和设备令牌"; return }
         stream = .start()
         queue = RealtimeSendQueue()
+        // Reset metrics
+        sampleIntervals.removeAll()
+        sendIntervals.removeAll()
+        locationAges.removeAll()
+        httpLatencies.removeAll()
         isSending = true
         status = "正在请求前台定位权限"
         manager.requestWhenInUseAuthorization()
@@ -85,12 +107,19 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard isSending, let location = locations.last, let stream else { return }
         let now = Date()
+        
+        // Track sample interval
+        if lastLocationUpdate != Date.distantPast {
+            let interval = now.timeIntervalSince(lastLocationUpdate)
+            trackMetric(&sampleIntervals, value: interval, published: \.avgSampleInterval)
+        }
         lastLocationUpdate = now
         lastLocationCallbackTime = now
         
-        print("[GPS-DEBUG] Location update: lat=\(location.coordinate.latitude), lon=\(location.coordinate.longitude), timestamp=\(location.timestamp), age=\(now.timeIntervalSince(location.timestamp))s")
+        let locationAge = now.timeIntervalSince(location.timestamp)
+        print("[GPS-DEBUG] Location update: age=\(String(format: "%.3f", locationAge))s, timestamp=\(location.timestamp)")
         
-        guard now.timeIntervalSince(location.timestamp) <= 10,
+        guard locationAge <= 10,
               location.timestamp.timeIntervalSince(now) <= 5,
               let payload = GpsFixPayload(location: location, deviceID: configuration.deviceID, stream: stream, sequence: stream.nextSequence()) else {
             print("[GPS-DEBUG] Location rejected: stale or invalid")
@@ -106,9 +135,11 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         scheduleSendIfIdle()
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("[GPS-DEBUG] Location error: \(error.localizedDescription)")
-        status = "定位错误：\(error.localizedDescription)"
+        Task { @MainActor in
+            status = "定位错误：\(error.localizedDescription)"
+        }
     }
     
     private func scheduleSendIfIdle() {
@@ -138,9 +169,9 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
             
             // Enforce rate limit by waiting if needed
             let timeSinceLastSend = now.timeIntervalSince(lastNetworkStart)
-            if timeSinceLastSend < 0.5 {
-                let waitTime = 0.5 - timeSinceLastSend
-                print("[GPS-DEBUG] Rate limit active, waiting \(String(format: "%.2f", waitTime))s before sending sequence=\(pending.sequence)")
+            if timeSinceLastSend < minSendInterval {
+                let waitTime = minSendInterval - timeSinceLastSend
+                print("[GPS-DEBUG] Rate limit active, waiting \(String(format: "%.3f", waitTime))s before sending sequence=\(pending.sequence)")
                 try? await Task.sleep(for: .seconds(waitTime))
                 
                 // Re-check cancellation after waiting
@@ -160,20 +191,37 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     
     @MainActor
     private func sendFix(_ pending: PendingGpsFix) async {
-        let now = Date()
-        print("[GPS-DEBUG] Sending: sequence=\(pending.sequence), age=\(now.timeIntervalSince(pending.timestamp))s")
-        lastNetworkStart = now
-        lastSendTime = now
+        let sendStartTime = Date()
+        let locationAge = sendStartTime.timeIntervalSince(pending.timestamp)
+        
+        // Track location age metric
+        trackMetric(&locationAges, value: locationAge, published: \.avgLocationAge)
+        
+        print("[GPS-DEBUG] Sending: sequence=\(pending.sequence), age=\(String(format: "%.3f", locationAge))s")
+        lastNetworkStart = sendStartTime
+        lastSendTime = sendStartTime
         
         do {
             try await transport.send(pending.payload, configuration: configuration)
+            let sendEndTime = Date()
+            let httpLatency = sendEndTime.timeIntervalSince(sendStartTime)
+            
+            // Track HTTP latency metric
+            trackMetric(&httpLatencies, value: httpLatency, published: \.avgHttpLatency)
+            
+            // Track send interval metric
+            if let lastSuccess = lastSendSuccessTime {
+                let interval = sendEndTime.timeIntervalSince(lastSuccess)
+                trackMetric(&sendIntervals, value: interval, published: \.avgSendInterval)
+            }
+            
             // Successfully sent: remove this sequence and discard all older ones
             queue.remove(sequence: pending.sequence)
             queue.discardOlder(than: pending.sequence)
             pendingCount = queue.pending.count
-            lastSendSuccessTime = now
+            lastSendSuccessTime = sendEndTime
             status = "已发送 #\(pending.sequence)"
-            print("[GPS-DEBUG] Send success: sequence=\(pending.sequence)")
+            print("[GPS-DEBUG] Send success: sequence=\(pending.sequence), http_latency=\(String(format: "%.3f", httpLatency))s")
         } catch let error as TransportError {
             // Capture status code for diagnostics
             switch error {
@@ -204,5 +252,14 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
             print("[GPS-DEBUG] Send failed with unexpected error: sequence=\(pending.sequence), error=\(error)")
             status = "未知错误"
         }
+    }
+    
+    private func trackMetric(_ array: inout [TimeInterval], value: TimeInterval, published keyPath: ReferenceWritableKeyPath<LocationSenderViewModel, TimeInterval>) {
+        array.append(value)
+        if array.count > maxMetricsSamples {
+            array.removeFirst()
+        }
+        let avg = array.reduce(0, +) / Double(array.count)
+        self[keyPath: keyPath] = avg
     }
 }

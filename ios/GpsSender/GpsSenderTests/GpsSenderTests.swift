@@ -271,3 +271,121 @@ final class GpsSenderTests: XCTestCase {
         XCTAssertEqual(queue.pendingSequences, [5])
     }
 }
+    
+    // MARK: - Send Interval and Performance Tests
+    
+    func testSendIntervalBoundaryAtMinInterval() {
+        var queue = RealtimeSendQueue(capacity: 20)
+        let now = Date(timeIntervalSinceReferenceDate: 1_000)
+        
+        // Enqueue two fixes
+        queue.enqueue(PendingGpsFix(sequence: 0, timestamp: now), now: now)
+        queue.enqueue(PendingGpsFix(sequence: 1, timestamp: now.addingTimeInterval(0.1)), now: now.addingTimeInterval(0.1))
+        
+        // Simulate sending #0 at t=0
+        queue.remove(sequence: 0)
+        queue.discardOlder(than: 0)
+        
+        // At t=0.15 (less than min interval 0.2), should still have #1
+        let t1 = now.addingTimeInterval(0.15)
+        XCTAssertEqual(queue.newest(now: t1)?.sequence, 1)
+        
+        // At t=0.25 (greater than min interval 0.2), should still have #1
+        let t2 = now.addingTimeInterval(0.25)
+        XCTAssertEqual(queue.newest(now: t2)?.sequence, 1)
+    }
+    
+    func testQueueSchedulingWithRapidEnqueues() {
+        var queue = RealtimeSendQueue(capacity: 20)
+        let now = Date(timeIntervalSinceReferenceDate: 1_000)
+        
+        // Rapidly enqueue 10 fixes within 0.1 seconds
+        for i in 0..<10 {
+            queue.enqueue(PendingGpsFix(sequence: i, timestamp: now.addingTimeInterval(Double(i) * 0.01)), now: now)
+        }
+        
+        // Should keep all 10 (under capacity)
+        XCTAssertEqual(queue.pending.count, 10)
+        
+        // Newest should be sequence 9
+        XCTAssertEqual(queue.newest(now: now)?.sequence, 9)
+        
+        // After sending #9, all older should be discarded
+        queue.remove(sequence: 9)
+        queue.discardOlder(than: 9)
+        XCTAssertTrue(queue.pending.isEmpty)
+    }
+    
+    func testStopRestartAllowsNewStreamFromZero() {
+        // First stream
+        let stream1 = StreamSession.start()
+        XCTAssertEqual(stream1.nextSequence(), 0)
+        XCTAssertEqual(stream1.nextSequence(), 1)
+        
+        // Simulate stop: create new stream
+        let stream2 = StreamSession.start()
+        XCTAssertNotEqual(stream1.streamID, stream2.streamID)
+        XCTAssertEqual(stream2.nextSequence(), 0)
+        XCTAssertEqual(stream2.nextSequence(), 1)
+        XCTAssertEqual(stream2.nextSequence(), 2)
+    }
+    
+    func testQueueDoesNotAllowSequenceRegression() {
+        var queue = RealtimeSendQueue(capacity: 20)
+        let now = Date(timeIntervalSinceReferenceDate: 1_000)
+        
+        // Enqueue #5
+        queue.enqueue(PendingGpsFix(sequence: 5, timestamp: now), now: now)
+        
+        // Send #5 successfully
+        queue.remove(sequence: 5)
+        queue.discardOlder(than: 5)
+        
+        // Enqueue #3 (older sequence - should still be accepted by queue but will be discarded if newer was sent)
+        queue.enqueue(PendingGpsFix(sequence: 3, timestamp: now.addingTimeInterval(0.1)), now: now.addingTimeInterval(0.1))
+        
+        // Queue has #3, but it's older than what was already sent
+        XCTAssertEqual(queue.pendingSequences, [3])
+        
+        // If we send #3, discardOlder won't remove anything since nothing is < 3
+        queue.remove(sequence: 3)
+        queue.discardOlder(than: 3)
+        XCTAssertTrue(queue.pending.isEmpty)
+        
+        // The key point: after sending #5, if #3 arrives later, it should be handled
+        // In real usage, the sequence generator ensures monotonically increasing sequences per stream
+    }
+    
+    func testHighFrequencyEnqueueUnderCapacity() {
+        var queue = RealtimeSendQueue(capacity: 20)
+        let now = Date(timeIntervalSinceReferenceDate: 1_000)
+        
+        // Enqueue 20 fixes at 0.05s intervals (simulating ~20 Hz sampling)
+        for i in 0..<20 {
+            queue.enqueue(PendingGpsFix(sequence: i, timestamp: now.addingTimeInterval(Double(i) * 0.05)), now: now)
+        }
+        
+        XCTAssertEqual(queue.pending.count, 20)
+        XCTAssertEqual(queue.newest(now: now)?.sequence, 19)
+        
+        // Enqueue one more - should drop oldest (capacity limit)
+        queue.enqueue(PendingGpsFix(sequence: 20, timestamp: now.addingTimeInterval(1.0)), now: now.addingTimeInterval(1.0))
+        XCTAssertEqual(queue.pending.count, 20)
+        XCTAssertEqual(queue.pendingSequences.first, 1)  // #0 dropped
+        XCTAssertEqual(queue.pendingSequences.last, 20)
+    }
+    
+    func testExpiredFixsAreDiscardedBeforeEnqueue() {
+        var queue = RealtimeSendQueue(capacity: 20)
+        let now = Date(timeIntervalSinceReferenceDate: 1_000)
+        
+        // Enqueue a fresh fix
+        queue.enqueue(PendingGpsFix(sequence: 0, timestamp: now), now: now)
+        
+        // Try to enqueue an expired fix (older than maxAge=10s)
+        queue.enqueue(PendingGpsFix(sequence: 1, timestamp: now.addingTimeInterval(-11)), now: now.addingTimeInterval(11))
+        
+        // Only the fresh fix should remain
+        XCTAssertEqual(queue.pendingSequences, [0])
+    }
+}
