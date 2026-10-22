@@ -14,6 +14,8 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     private var queue = RealtimeSendQueue()
     private var stream: StreamSession?
     private var lastNetworkStart = Date.distantPast
+    private var lastLocationUpdate = Date.distantPast
+    private var lastSendTime = Date.distantPast
     private let defaults = UserDefaults.standard
     private let keychainService = "com.navigation-system.GpsSender"
 
@@ -22,6 +24,7 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.distanceFilter = 2
+        manager.pausesLocationUpdatesAutomatically = false
         configuration.host = defaults.string(forKey: "gpsHost") ?? ""
         configuration.port = defaults.string(forKey: "gpsPort") ?? "8000"
         configuration.deviceID = defaults.string(forKey: "gpsDeviceID") ?? "ios-\(UUID().uuidString)"
@@ -55,9 +58,13 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        print("[GPS-DEBUG] Authorization changed: \(manager.authorizationStatus.rawValue)")
         if isSending && manager.authorizationStatus == .authorizedWhenInUse {
-            manager.startUpdatingLocation(); status = "正在发送"
+            print("[GPS-DEBUG] Starting location updates")
+            manager.startUpdatingLocation()
+            status = "正在发送"
         } else if manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted {
+            print("[GPS-DEBUG] Location authorization denied or restricted")
             status = "定位权限未授予"
         }
     }
@@ -65,26 +72,55 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard isSending, let location = locations.last, let stream else { return }
         let now = Date()
+        lastLocationUpdate = now
+        
+        print("[GPS-DEBUG] Location update: lat=\(location.coordinate.latitude), lon=\(location.coordinate.longitude), timestamp=\(location.timestamp), age=\(now.timeIntervalSince(location.timestamp))s")
+        
         guard now.timeIntervalSince(location.timestamp) <= 10,
               location.timestamp.timeIntervalSince(now) <= 5,
-              let payload = GpsFixPayload(location: location, deviceID: configuration.deviceID, stream: stream, sequence: stream.nextSequence()) else { return }
+              let payload = GpsFixPayload(location: location, deviceID: configuration.deviceID, stream: stream, sequence: stream.nextSequence()) else {
+            print("[GPS-DEBUG] Location rejected: stale or invalid")
+            return
+        }
+        
         latestLocation = String(format: "%.6f, %.6f（±%.1fm）", payload.lat, payload.lon, payload.accuracyM)
+        print("[GPS-DEBUG] Enqueued fix: sequence=\(payload.sequence)")
+        
         queue.enqueue(PendingGpsFix(payload: payload), now: now)
         sendLatestIfAllowed()
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) { status = "定位错误：\(error.localizedDescription)" }
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("[GPS-DEBUG] Location error: \(error.localizedDescription)")
+        status = "定位错误：\(error.localizedDescription)"
+    }
 
     private func sendLatestIfAllowed() {
         let now = Date()
-        guard now.timeIntervalSince(lastNetworkStart) >= 0.5, let pending = queue.newest(now: now) else { return }
+        let timeSinceLastSend = now.timeIntervalSince(lastNetworkStart)
+        
+        guard timeSinceLastSend >= 0.5 else {
+            print("[GPS-DEBUG] Rate limited: \(String(format: "%.2f", timeSinceLastSend))s since last send")
+            return
+        }
+        
+        guard let pending = queue.newest(now: now) else {
+            print("[GPS-DEBUG] No pending fix in queue")
+            return
+        }
+        
+        print("[GPS-DEBUG] Sending: sequence=\(pending.sequence), age=\(now.timeIntervalSince(pending.timestamp))s")
         lastNetworkStart = now
+        lastSendTime = now
+        
         Task {
             do {
                 try await transport.send(pending.payload, configuration: configuration)
                 queue.remove(sequence: pending.sequence)
                 status = "已发送 #\(pending.sequence)"
+                print("[GPS-DEBUG] Send success: sequence=\(pending.sequence)")
             } catch {
+                print("[GPS-DEBUG] Send failed: sequence=\(pending.sequence), error=\(error)")
                 switch queue.registerFailure(sequence: pending.sequence, now: Date()) {
                 case .retry(let delay):
                     status = "网络失败，短暂重试"
@@ -92,6 +128,7 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
                     sendLatestIfAllowed()
                 case .drop:
                     status = "报文已丢弃，等待最新定位"
+                    print("[GPS-DEBUG] Fix dropped after max retries")
                 }
             }
         }
