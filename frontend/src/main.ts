@@ -10,7 +10,7 @@ import type { Coordinate } from "./types";
 
 const map = new maplibregl.Map({
   container: "map",
-  center: [116.402, 39.8997],
+  center: [113.5546, 22.3924],
   zoom: 15,
   localIdeographFontFamily: "PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif",
   style: {
@@ -25,8 +25,8 @@ const button = document.querySelector<HTMLButtonElement>("#plan-route")!;
 const summary = document.querySelector<HTMLParagraphElement>("#route-summary")!;
 const replayButton = document.querySelector<HTMLButtonElement>("#start-replay")!;
 const trackSelect = document.querySelector<HTMLSelectElement>("#track-select")!;
-const demoOrigin: Coordinate = { lat: 39.9, lon: 116.4 };
-const demoDestination: Coordinate = { lat: 39.8994, lon: 116.404 };
+const demoOrigin: Coordinate = { lat: 22.3718, lon: 113.5806 };
+const demoDestination: Coordinate = { lat: 22.3691, lon: 113.5714 };
 const sessionStorageKey = "offline-navigation-session";
 let origin: Coordinate | null = demoOrigin;
 let destination: Coordinate | null = demoDestination;
