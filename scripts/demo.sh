@@ -15,7 +15,7 @@ thematic_map_data_ready() {
 for _ in $(seq 1 30); do
   if curl --max-time 3 --fail --silent http://127.0.0.1:8000/openapi.json >/dev/null \
     && thematic_map_data_ready \
-    && curl --max-time 3 --fail --silent 'http://127.0.0.1:5000/nearest/v1/driving/116.4,39.9?number=1' >/dev/null; then
+    && curl --max-time 3 --fail --silent 'http://127.0.0.1:5000/nearest/v1/driving/113.5806,22.3718?number=1' >/dev/null; then
     echo "Offline navigation MVP: http://127.0.0.1:5173/"
     exit 0
   fi

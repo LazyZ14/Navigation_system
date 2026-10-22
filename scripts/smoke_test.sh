@@ -20,9 +20,9 @@ for map_layer in roads buildings water green landuse road-labels place-labels po
     exit 1
   fi
 done
-route=$(curl --max-time 3 --fail --silent -X POST "$api_base/api/routes" -H 'content-type: application/json' -d '{"origin":{"lat":39.9000,"lon":116.4000},"destination":{"lat":39.8994,"lon":116.4040}}')
+route=$(curl --max-time 3 --fail --silent -X POST "$api_base/api/routes" -H 'content-type: application/json' -d '{"origin":{"lat":22.3718,"lon":113.5806},"destination":{"lat":22.3691,"lon":113.5714}}')
 python3 -c 'import json,sys; assert json.load(sys.stdin)["geometry"]' <<<"$route"
-session=$(curl --max-time 3 --fail --silent -X POST "$api_base/api/navigation/sessions" -H 'content-type: application/json' -d '{"origin":{"lat":39.9000,"lon":116.4000},"destination":{"lat":39.8994,"lon":116.4040},"track_id":"normal-route"}')
+session=$(curl --max-time 3 --fail --silent -X POST "$api_base/api/navigation/sessions" -H 'content-type: application/json' -d '{"origin":{"lat":22.3718,"lon":113.5806},"destination":{"lat":22.3691,"lon":113.5714},"track_id":"normal-route"}')
 session_id=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["session_id"])' <<<"$session")
 normal_arrived=0
 for _ in $(seq 1 10); do
@@ -37,7 +37,7 @@ if [[ "$normal_arrived" != "1" ]]; then
   exit 1
 fi
 
-off_route_session=$(curl --max-time 3 --fail --silent -X POST "$api_base/api/navigation/sessions" -H 'content-type: application/json' -d '{"origin":{"lat":39.9000,"lon":116.4000},"destination":{"lat":39.8994,"lon":116.4040},"track_id":"off-route"}')
+off_route_session=$(curl --max-time 3 --fail --silent -X POST "$api_base/api/navigation/sessions" -H 'content-type: application/json' -d '{"origin":{"lat":22.3718,"lon":113.5806},"destination":{"lat":22.3691,"lon":113.5714},"track_id":"off-route"}')
 off_route_session_id=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["session_id"])' <<<"$off_route_session")
 replan_count=0
 for _ in $(seq 1 10); do

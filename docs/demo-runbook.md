@@ -2,8 +2,8 @@
 
 ## Start
 
-Prerequisites: Docker Desktop is running, `data/osrm/beijing.osrm*` has been built locally, and
-`frontend/public/generated/map-roads.geojson` exists. These generated artifacts remain ignored by Git.
+Prerequisites: Docker Desktop is running, `data/osrm/zhuhai.osrm*` has been built locally, and
+`frontend/public/generated/roads.geojson` exists. These generated artifacts remain ignored by Git.
 
 Run `bash scripts/demo.sh`, then open `http://127.0.0.1:5173/`.
 
