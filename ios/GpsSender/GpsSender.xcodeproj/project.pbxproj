@@ -17,6 +17,16 @@
 		A1000008 /* GpsSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000008 /* GpsSenderTests.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		A8000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A9000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5000001;
+			remoteInfo = GpsSender;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		A2000001 /* GpsSenderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GpsSenderApp.swift; sourceTree = "<group>"; };
 		A2000002 /* GpsFixPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GpsFixPayload.swift; sourceTree = "<group>"; };
@@ -34,14 +44,14 @@
 /* Begin PBXFrameworksBuildPhase section */
 		A3000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = PBXBuildActionMaskNone;
+			buildActionMask = 511883718121;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A3000002 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = PBXBuildActionMaskNone;
+			buildActionMask = 511883718121;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -189,7 +199,7 @@
 /* Begin PBXSourcesBuildPhase section */
 		A7000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = PBXBuildActionMaskNone;
+			buildActionMask = 511883718121;
 			files = (
 				A1000001 /* GpsSenderApp.swift in Sources */,
 				A1000002 /* GpsFixPayload.swift in Sources */,
@@ -203,7 +213,7 @@
 		};
 		A7000002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = PBXBuildActionMaskNone;
+			buildActionMask = 511883718121;
 			files = (
 				A1000008 /* GpsSenderTests.swift in Sources */,
 			);
@@ -216,13 +226,6 @@
 			isa = PBXTargetDependency;
 			target = A5000001 /* GpsSender */;
 			targetProxy = A8000002 /* PBXContainerItemProxy */;
-		};
-		A8000002 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A9000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A5000001;
-			remoteInfo = GpsSender;
 		};
 /* End PBXTargetDependency section */
 
@@ -324,8 +327,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.navigation-system.GpsSender";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -353,8 +356,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.navigation-system.GpsSender";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -372,8 +375,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.navigation-system.GpsSenderTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -392,8 +395,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.navigation-system.GpsSenderTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GpsSender.app/GpsSender";
@@ -431,7 +434,6 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = A9000001 /* Project object */;
 }
