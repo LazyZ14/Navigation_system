@@ -36,16 +36,41 @@ struct RealtimeSendQueue {
         return pending.last
     }
 
+    /// Discard all items with sequence strictly less than the given value.
+    /// Call this after successfully sending a newer sequence to prevent re-sending stale data.
+    mutating func discardOlder(than sequence: Int) {
+        pending.removeAll { $0.sequence < sequence }
+    }
+
     mutating func remove(sequence: Int) { pending.removeAll { $0.sequence == sequence } }
 
-    mutating func registerFailure(sequence: Int, now: Date) -> RetryDecision {
+    mutating func registerFailure(sequence: Int, now: Date, error: TransportError) -> RetryDecision {
         discardExpired(now: now)
-        guard let index = pending.lastIndex(where: { $0.sequence == sequence }) else { return .drop }
-        pending[index].attempts += 1
-        guard pending[index].attempts <= maxAttempts else { pending.remove(at: index); return .drop }
-        let delays: [TimeInterval] = [0.5, 1.0, 2.0]
-        let delay = pending[index].attempts <= delays.count ? delays[pending[index].attempts - 1] : delays.last!
-        return .retry(after: delay)
+        
+        // Protocol errors should never be retried
+        switch error {
+        case .unauthorized, .conflict, .unprocessable:
+            pending.removeAll { $0.sequence == sequence }
+            return .drop
+        case .networkTimeout:
+            // Network timeout: bounded retry with backoff
+            guard let index = pending.lastIndex(where: { $0.sequence == sequence }) else { return .drop }
+            pending[index].attempts += 1
+            guard pending[index].attempts <= maxAttempts else { pending.remove(at: index); return .drop }
+            let delays: [TimeInterval] = [0.5, 1.0, 2.0]
+            let delay = pending[index].attempts <= delays.count ? delays[pending[index].attempts - 1] : delays.last!
+            return .retry(after: delay)
+        case .other(let code):
+            // Other HTTP errors: treat as transient, retry with backoff
+            guard let index = pending.lastIndex(where: { $0.sequence == sequence }) else { return .drop }
+            pending[index].attempts += 1
+            guard pending[index].attempts <= maxAttempts else { pending.remove(at: index); return .drop }
+            let delays: [TimeInterval] = [0.5, 1.0, 2.0]
+            let delay = pending[index].attempts <= delays.count ? delays[pending[index].attempts - 1] : delays.last!
+            return .retry(after: delay)
+        case .invalidEndpoint:
+            return .drop
+        }
     }
 
     private mutating func discardExpired(now: Date) {

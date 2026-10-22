@@ -8,6 +8,13 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     @Published var isSending = false
     @Published var status = "未开始"
     @Published var latestLocation = "尚无定位"
+    
+    // Diagnostic state
+    @Published var lastLocationCallbackTime: Date?
+    @Published var lastEnqueueTime: Date?
+    @Published var lastSendSuccessTime: Date?
+    @Published var pendingCount: Int = 0
+    @Published var lastHttpStatusCode: Int?
 
     private let manager = CLLocationManager()
     private let transport = GpsTransport()
@@ -79,6 +86,7 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         guard isSending, let location = locations.last, let stream else { return }
         let now = Date()
         lastLocationUpdate = now
+        lastLocationCallbackTime = now
         
         print("[GPS-DEBUG] Location update: lat=\(location.coordinate.latitude), lon=\(location.coordinate.longitude), timestamp=\(location.timestamp), age=\(now.timeIntervalSince(location.timestamp))s")
         
@@ -91,8 +99,10 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         
         latestLocation = String(format: "%.6f, %.6f（±%.1fm）", payload.lat, payload.lon, payload.accuracyM)
         print("[GPS-DEBUG] Enqueued fix: sequence=\(payload.sequence)")
+        lastEnqueueTime = now
         
         queue.enqueue(PendingGpsFix(payload: payload), now: now)
+        pendingCount = queue.pending.count
         scheduleSendIfIdle()
     }
 
@@ -138,8 +148,6 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
                 
                 // Re-fetch newest in case it changed during wait
                 guard let latestPending = queue.newest(now: Date()) else { continue }
-                _ = pending // Use the original for logging below
-                // Actually use the latest for sending
                 await sendFix(latestPending)
             } else {
                 await sendFix(pending)
@@ -159,20 +167,42 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         
         do {
             try await transport.send(pending.payload, configuration: configuration)
+            // Successfully sent: remove this sequence and discard all older ones
             queue.remove(sequence: pending.sequence)
+            queue.discardOlder(than: pending.sequence)
+            pendingCount = queue.pending.count
+            lastSendSuccessTime = now
             status = "已发送 #\(pending.sequence)"
             print("[GPS-DEBUG] Send success: sequence=\(pending.sequence)")
-        } catch {
+        } catch let error as TransportError {
+            // Capture status code for diagnostics
+            switch error {
+            case .unauthorized:
+                lastHttpStatusCode = 401
+            case .conflict:
+                lastHttpStatusCode = 409
+            case .unprocessable:
+                lastHttpStatusCode = 422
+            case .other(let code):
+                lastHttpStatusCode = code
+            case .networkTimeout, .invalidEndpoint:
+                lastHttpStatusCode = nil
+            }
+            
             print("[GPS-DEBUG] Send failed: sequence=\(pending.sequence), error=\(error)")
-            switch queue.registerFailure(sequence: pending.sequence, now: Date()) {
+            switch queue.registerFailure(sequence: pending.sequence, now: Date(), error: error) {
             case .retry(let delay):
                 status = "网络失败，短暂重试"
                 try? await Task.sleep(for: .seconds(delay))
                 // Retry will happen naturally as drainQueue loops
             case .drop:
                 status = "报文已丢弃，等待最新定位"
-                print("[GPS-DEBUG] Fix dropped after max retries")
+                print("[GPS-DEBUG] Fix dropped after max retries or protocol error")
             }
+        } catch {
+            // Unexpected error type
+            print("[GPS-DEBUG] Send failed with unexpected error: sequence=\(pending.sequence), error=\(error)")
+            status = "未知错误"
         }
     }
 }
