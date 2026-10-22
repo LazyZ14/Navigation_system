@@ -16,6 +16,7 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     private var lastNetworkStart = Date.distantPast
     private var lastLocationUpdate = Date.distantPast
     private var lastSendTime = Date.distantPast
+    private var sendTask: Task<Void, Never>?
     private let defaults = UserDefaults.standard
     private let keychainService = "com.navigation-system.GpsSender"
 
@@ -50,11 +51,16 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
     }
 
     func stop() {
+        // Cancel any active send task
+        sendTask?.cancel()
+        sendTask = nil
+        
         manager.stopUpdatingLocation()
         queue = RealtimeSendQueue()
         stream = nil
         isSending = false
         status = "已停止；下次开始将使用新的 stream"
+        print("[GPS-DEBUG] Stopped sending, cancelled send task")
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -87,49 +93,85 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         print("[GPS-DEBUG] Enqueued fix: sequence=\(payload.sequence)")
         
         queue.enqueue(PendingGpsFix(payload: payload), now: now)
-        sendLatestIfAllowed()
+        scheduleSendIfIdle()
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("[GPS-DEBUG] Location error: \(error.localizedDescription)")
         status = "定位错误：\(error.localizedDescription)"
     }
-
-    private func sendLatestIfAllowed() {
+    
+    private func scheduleSendIfIdle() {
+        // Only start a new send task if none is currently active
+        guard sendTask == nil || sendTask?.isCancelled == true else {
+            print("[GPS-DEBUG] Send task already active, queue will be drained by existing consumer")
+            return
+        }
+        
+        // Start a new consumer task
+        sendTask = Task { [weak self] in
+            guard let self = self else { return }
+            await self.drainQueue()
+        }
+    }
+    
+    @MainActor
+    private func drainQueue() async {
+        while !Task.isCancelled {
+            let now = Date()
+            
+            // Check if there's anything to send
+            guard let pending = queue.newest(now: now) else {
+                print("[GPS-DEBUG] Queue empty, stopping consumer")
+                break
+            }
+            
+            // Enforce rate limit by waiting if needed
+            let timeSinceLastSend = now.timeIntervalSince(lastNetworkStart)
+            if timeSinceLastSend < 0.5 {
+                let waitTime = 0.5 - timeSinceLastSend
+                print("[GPS-DEBUG] Rate limit active, waiting \(String(format: "%.2f", waitTime))s before sending sequence=\(pending.sequence)")
+                try? await Task.sleep(for: .seconds(waitTime))
+                
+                // Re-check cancellation after waiting
+                if Task.isCancelled { break }
+                
+                // Re-fetch newest in case it changed during wait
+                guard let latestPending = queue.newest(now: Date()) else { continue }
+                _ = pending // Use the original for logging below
+                // Actually use the latest for sending
+                await sendFix(latestPending)
+            } else {
+                await sendFix(pending)
+            }
+        }
+        
+        // Mark task as completed
+        sendTask = nil
+    }
+    
+    @MainActor
+    private func sendFix(_ pending: PendingGpsFix) async {
         let now = Date()
-        let timeSinceLastSend = now.timeIntervalSince(lastNetworkStart)
-        
-        guard timeSinceLastSend >= 0.5 else {
-            print("[GPS-DEBUG] Rate limited: \(String(format: "%.2f", timeSinceLastSend))s since last send")
-            return
-        }
-        
-        guard let pending = queue.newest(now: now) else {
-            print("[GPS-DEBUG] No pending fix in queue")
-            return
-        }
-        
         print("[GPS-DEBUG] Sending: sequence=\(pending.sequence), age=\(now.timeIntervalSince(pending.timestamp))s")
         lastNetworkStart = now
         lastSendTime = now
         
-        Task {
-            do {
-                try await transport.send(pending.payload, configuration: configuration)
-                queue.remove(sequence: pending.sequence)
-                status = "已发送 #\(pending.sequence)"
-                print("[GPS-DEBUG] Send success: sequence=\(pending.sequence)")
-            } catch {
-                print("[GPS-DEBUG] Send failed: sequence=\(pending.sequence), error=\(error)")
-                switch queue.registerFailure(sequence: pending.sequence, now: Date()) {
-                case .retry(let delay):
-                    status = "网络失败，短暂重试"
-                    try? await Task.sleep(for: .seconds(delay))
-                    sendLatestIfAllowed()
-                case .drop:
-                    status = "报文已丢弃，等待最新定位"
-                    print("[GPS-DEBUG] Fix dropped after max retries")
-                }
+        do {
+            try await transport.send(pending.payload, configuration: configuration)
+            queue.remove(sequence: pending.sequence)
+            status = "已发送 #\(pending.sequence)"
+            print("[GPS-DEBUG] Send success: sequence=\(pending.sequence)")
+        } catch {
+            print("[GPS-DEBUG] Send failed: sequence=\(pending.sequence), error=\(error)")
+            switch queue.registerFailure(sequence: pending.sequence, now: Date()) {
+            case .retry(let delay):
+                status = "网络失败，短暂重试"
+                try? await Task.sleep(for: .seconds(delay))
+                // Retry will happen naturally as drainQueue loops
+            case .drop:
+                status = "报文已丢弃，等待最新定位"
+                print("[GPS-DEBUG] Fix dropped after max retries")
             }
         }
     }
