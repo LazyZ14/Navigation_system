@@ -10,6 +10,9 @@ data/metadata/*
 *.osrm*
 *.mbtiles
 
+# GPS recording files (sensitive location data)
+ios/GpsSender/GpsSender/Documents/GPS_Recordings/*.jsonl
+
 # Local tooling and generated output
 .venv/
 __pycache__/
@@ -22,5 +25,22 @@ dist/
 gps-receiver*.log
 .DS_Store
 .superpowers/
-ios/GpsSender/GpsSender.xcodeproj/xcuserdata/
-ios/GpsSender/GpsSender.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# Xcode and iOS build artifacts
+ios/**/*.xcuserstate
+ios/**/*.xcuserdata/
+ios/**/*.swiftpm/
+ios/DerivedData/
+ios/build/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# Office document build artifacts (if any)
+.docx-build/
+.pptx-build/
+artifacts/
+
+# IDE files
+.vscode/
+.idea/
+*.iml
