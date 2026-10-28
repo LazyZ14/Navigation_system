@@ -337,6 +337,7 @@ ROAD_PRIORITY = {"trunk": 1, "primary": 1, "secondary": 2, "tertiary": 2, "resid
 INSTITUTIONAL_AMENITIES = {"school", "hospital", "theatre"}
 POI_MAPPING: dict[str, dict[str, tuple[str, int]]] = {
     "amenity": {
+        "parking": ("transport", 5),
         "restaurant": ("food", 3),
         "cafe": ("food", 3),
         "fast_food": ("food", 3),
@@ -419,7 +420,7 @@ def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[st
         if error is not None:
             continue
         assert geometry is not None
-        label_name = select_label_name(relation_tags)
+        label_name = select_label_name(relation_tags) or ("停车场" if relation_tags.get("amenity") == "parking" else None)
         if label_name is None:
             continue
         building_tag = relation_tags.get("building")
@@ -476,7 +477,7 @@ def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[st
                     labels["poi"]["features"].append(poi_feature)
 
     for way_id, (refs, way_tags) in ways.items():
-        label_name = select_label_name(way_tags)
+        label_name = select_label_name(way_tags) or ("停车场" if way_tags.get("amenity") == "parking" else None)
         road_class = way_tags.get("highway")
         coordinates = coordinates_for(refs, nodes)
         if road_class in LABEL_ROAD_CLASSES and label_name is not None and coordinates is not None and len(coordinates) >= 2:
@@ -551,7 +552,7 @@ def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[st
     for node in root.findall("node"):
         node_id = node.attrib["id"]
         node_tags = tags(node)
-        label_name = select_label_name(node_tags)
+        label_name = select_label_name(node_tags) or ("停车场" if node_tags.get("amenity") == "parking" else None)
         if label_name is None:
             continue
         coordinate = nodes[node_id]

@@ -1,5 +1,39 @@
 # Navigation System
 
+## Voice-01 本地演示
+
+语音导航使用浏览器录音、腾讯云一句话识别和本机 Ollama `qwen2.5:7b`。录音通过 FastAPI 发送腾讯云，可能产生费用；文本输入可独立测试 LLM。模型只提取地点需求，候选坐标来自本地 OSM。选择候选并确认后才调用导航会话；停车场和地点数据覆盖范围受 OSM 约束。识别文本可编辑，尤其需要核对地名。浏览器录音要求 localhost 或 HTTPS 并授予麦克风权限。
+
+以下步骤使用独立端口，避免影响其他 worktree。需要 Python 3.12、Node.js、Docker、ffmpeg、腾讯云 ASR 服务及凭证、已安装的 Ollama `qwen2.5:7b` 和珠海 OSM 文件。腾讯云语音识别需要网络，其他导航服务仍在本机运行。地图产物与密钥均不提交 Git。Ubuntu 尚需实际验证。
+
+```bash
+python3.12 -m venv backend/.venv
+backend/.venv/bin/pip install -e './backend[voice,dev]'
+cd frontend && npm ci && cd ..
+# 将已有珠海 OSM 文件放在 data/raw/zhuhai.osm 后：
+bash scripts/build_osrm.sh data/raw/zhuhai.osm zhuhai
+python3 scripts/build_tiles.sh data/raw/zhuhai.osm
+docker run --rm --name voice01-osrm -p 127.0.0.1:15000:5000 -v "$PWD/data/osrm:/data:ro" ghcr.io/project-osrm/osrm-backend:v5.27.1 osrm-routed --algorithm mld /data/zhuhai.osrm
+```
+
+另开终端，先运行 `bash`，再在仓库根目录安全地输入腾讯云 `TENCENT_SECRET_ID`、`TENCENT_SECRET_KEY` 并启动 API（Ollama 需已运行）。不要将密钥放入源码、聊天或提交；区域可通过 `TENCENT_REGION` 设置，默认 `ap-guangzhou`：
+
+```bash
+read -r -p 'Tencent SecretId: ' TENCENT_SECRET_ID
+read -r -s -p 'Tencent SecretKey: ' TENCENT_SECRET_KEY; printf '\n'
+export TENCENT_SECRET_ID TENCENT_SECRET_KEY
+OSRM_BASE_URL=http://127.0.0.1:15000 PYTHONPATH=backend backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 18000
+```
+
+再开终端启动界面：
+
+```bash
+cd frontend
+VOICE_API_URL=http://127.0.0.1:18000 npm run dev -- --host 127.0.0.1 --port 15173
+```
+
+打开 `http://localhost:15173/`。选择或保留演示起点，点击“开始录音”，说出需求后点击“停止录音”；也可以直接输入文本并点击“解析需求”。录音不超过 60 秒；选择地图上的候选对应按钮，点击“确认导航”；取消不会创建导航会话。服务不可用和没有候选时界面会提示。结束时分别在三个终端按 Ctrl-C。默认 Ollama 地址是 `http://127.0.0.1:11434`，可通过 `OLLAMA_URL`、`OLLAMA_MODEL` 配置。
+
 本地离线导航与 GPS 数据采集系统，支持 macOS Web 界面导航和 iPhone 原始定位录制。
 
 ## 当前阶段

@@ -16,6 +16,18 @@ build_tiles = importlib.util.module_from_spec(SPEC)
 LOADER.exec_module(build_tiles)
 
 
+def test_unnamed_parking_node_and_area_are_searchable(tmp_path):
+    source = tmp_path / "parking.osm"
+    source.write_text('''<osm>
+      <node id="1" lat="1" lon="1"><tag k="amenity" v="parking"/></node>
+      <node id="2" lat="2" lon="2"/><node id="3" lat="2" lon="3"/>
+      <node id="4" lat="3" lon="3"/><node id="5" lat="3" lon="2"/>
+      <way id="6"><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="5"/><nd ref="2"/><tag k="amenity" v="parking"/></way>
+    </osm>''')
+    labels, _ = build_tiles.build_label_feature_collections(source)
+    assert [p["properties"]["subclass"] for p in labels["poi"]["features"]] == ["parking", "parking"]
+
+
 def write_osm(path: Path) -> None:
     path.write_text(
         """<osm>
