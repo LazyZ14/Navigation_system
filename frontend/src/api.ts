@@ -14,13 +14,25 @@ export async function createNavigationSession(
   origin: Coordinate,
   destination: Coordinate,
   trackId: string,
+  requireSafeDestination = false,
 ): Promise<NavigationSession> {
   const response = await fetch("/api/navigation/sessions", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ origin, destination, track_id: trackId }),
+    body: JSON.stringify({ origin, destination, track_id: trackId, require_safe_destination: requireSafeDestination }),
   });
-  if (!response.ok) throw new Error("无法创建导航会话");
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { detail?: { code?: string; distance_m?: number } };
+    const code = body.detail?.code;
+    if (code === "destination_snap_too_far") {
+      const distance = body.detail?.distance_m;
+      throw new Error(`目的地距离可行驶道路过远${typeof distance === "number" && Number.isFinite(distance) ? `（约 ${Math.round(distance)} 米）` : ""}，无法安全规划`);
+    }
+    if (code === "destination_snap_policy_unavailable") throw new Error("请先配置目的地道路吸附距离阈值");
+    if (code === "destination_snap_unavailable") throw new Error("无法验证目的地道路吸附距离");
+    if (code === "route_not_found") throw new Error("起点到目的地没有可达路线");
+    throw new Error("无法创建导航会话");
+  }
   return response.json() as Promise<NavigationSession>;
 }
 

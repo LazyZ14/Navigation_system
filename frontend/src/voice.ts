@@ -2,6 +2,13 @@ import type { Coordinate } from "./types";
 
 export interface Candidate { name: string; location: Coordinate }
 
+export class RequestVersion {
+  private value = 0;
+  next(): number { return ++this.value; }
+  invalidate(): void { this.value++; }
+  isCurrent(version: number): boolean { return version === this.value; }
+}
+
 export class VoiceSelection {
   private candidate: Candidate | null = null;
   constructor(private readonly navigate: (candidate: Candidate) => Promise<void> | void) {}

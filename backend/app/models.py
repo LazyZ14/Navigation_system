@@ -40,6 +40,8 @@ class RouteResponse(BaseModel):
     distance_m: float
     duration_s: float
     maneuvers: list[Maneuver]
+    road_destination: Coordinate | None = None
+    destination_snap_distance_m: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class LocationFix(Coordinate):
@@ -95,3 +97,4 @@ class NavigationSessionRequest(RouteRequest):
     )
 
     track_id: Literal["normal-route", "off-route", "current-route"] | None = None
+    require_safe_destination: bool = False

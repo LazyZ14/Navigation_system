@@ -1,4 +1,5 @@
 import asyncio
+import math
 from collections.abc import AsyncIterator
 from typing import Protocol
 from uuid import uuid4
@@ -115,6 +116,16 @@ class NavigationRouteClient(NearestRoadClient, Protocol):
     async def route(self, origin: Coordinate, destination: Coordinate) -> RouteResponse: ...
 
 
+class DestinationSnapUnavailable(Exception):
+    pass
+
+
+class DestinationSnapTooFar(Exception):
+    def __init__(self, distance_m: float, road_destination: Coordinate):
+        self.distance_m = distance_m
+        self.road_destination = road_destination
+
+
 class NavigationSessionStore:
     def __init__(self, client: NavigationRouteClient, tracks: dict[str, list[LocationFix]] | None = None):
         self._client = client
@@ -126,9 +137,15 @@ class NavigationSessionStore:
         self._locks: dict[str, asyncio.Lock] = {}
 
     async def create(
-        self, origin: Coordinate, destination: Coordinate, track_id: str | None = None
+        self, origin: Coordinate, destination: Coordinate, track_id: str | None = None, max_destination_snap_m: float | None = None
     ) -> NavigationSession:
         route = await self._client.route(origin, destination)
+        if max_destination_snap_m is not None:
+            if (route.road_destination is None or route.destination_snap_distance_m is None
+                    or not math.isfinite(route.destination_snap_distance_m) or route.destination_snap_distance_m < 0):
+                raise DestinationSnapUnavailable()
+            if route.destination_snap_distance_m > max_destination_snap_m:
+                raise DestinationSnapTooFar(route.destination_snap_distance_m, route.road_destination)
         points = None
         if track_id == "current-route":
             from app.services.track_generator import generate_route_track

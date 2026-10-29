@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { VoiceSelection } from "../voice";
+import { RequestVersion, VoiceSelection } from "../voice";
 
 describe("voice candidate confirmation", () => {
   it("does not navigate after cancellation", async () => {
@@ -19,5 +19,17 @@ describe("voice candidate confirmation", () => {
     expect(navigate).not.toHaveBeenCalled();
     await selection.confirm();
     expect(navigate).toHaveBeenCalledWith(place);
+  });
+});
+
+describe("navigation request versions", () => {
+  it("invalidates stale responses after a newer request or cancellation", () => {
+    const version = new RequestVersion();
+    const first = version.next();
+    const second = version.next();
+    expect(version.isCurrent(first)).toBe(false);
+    expect(version.isCurrent(second)).toBe(true);
+    version.invalidate();
+    expect(version.isCurrent(second)).toBe(false);
   });
 });

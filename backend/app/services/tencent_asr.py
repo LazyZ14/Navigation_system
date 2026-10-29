@@ -13,13 +13,19 @@ class AudioError(Exception):
     pass
 
 
+class ASRTimeout(Exception):
+    pass
+
+
 def to_pcm(audio: bytes) -> bytes:
     try:
         result = subprocess.run(
-            ["ffmpeg", "-nostdin", "-v", "error", "-i", "pipe:0", "-t", "61", "-ac", "1", "-ar", "16000", "-f", "s16le", "pipe:1"],
+            ["ffmpeg", "-nostdin", "-v", "error", "-protocol_whitelist", "pipe", "-i", "pipe:0", "-t", "61", "-ac", "1", "-ar", "16000", "-f", "s16le", "pipe:1"],
             input=audio, capture_output=True, timeout=20, check=True,
         )
         return result.stdout
+    except subprocess.TimeoutExpired as exc:
+        raise ASRTimeout("audio conversion timed out") from exc
     except (OSError, subprocess.SubprocessError) as exc:
         raise AudioError("audio conversion failed") from exc
 
@@ -62,4 +68,10 @@ class TencentASR:
         request.UsrAudioKey = uuid4().hex
         request.Data = base64.b64encode(pcm).decode("ascii")
         request.DataLen = len(pcm)
-        return (self.client.SentenceRecognition(request).Result or "").strip()
+        try:
+            return (self.client.SentenceRecognition(request).Result or "").strip()
+        except Exception as exc:
+            import requests
+            if isinstance(exc, requests.exceptions.Timeout) or isinstance(exc.__context__, requests.exceptions.Timeout):
+                raise ASRTimeout("cloud recognition timed out") from exc
+            raise

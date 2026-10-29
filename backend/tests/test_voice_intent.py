@@ -34,3 +34,47 @@ def test_specific_food_constraint_is_not_silently_dropped():
     intent = NavigationIntent(intent="navigate_to_poi", destination_query="", category="food", requires_clarification=False)
     result = preserve_specific_food("我要吃火锅", intent)
     assert result.destination_query == "火锅"
+
+
+@pytest.mark.parametrize(("text", "kind"), [
+    ("找便宜的酒店", "price"),
+    ("找现在营业的餐厅", "opening_hours"),
+    ("找餐馆但不要快餐", "exclusion"),
+    ("附近有停车位的餐厅", "location"),
+    ("我要吃火锅", "cuisine"),
+    ("沿途加油站", "location"),
+    ("找适合休息的地方", "other"),
+])
+def test_unverified_requirements_cannot_be_silently_dropped(text, kind):
+    from app.services.voice import enforce_constraints
+    intent = NavigationIntent(intent="navigate_to_poi", destination_query="", category="food", requires_clarification=False)
+    result = enforce_constraints(text, intent)
+    assert result.requires_clarification is True
+    assert any(c.kind == kind and c.status == "unverified" for c in result.constraints)
+
+
+def test_constraint_schema_rejects_fabricated_verified_status():
+    from app.services.voice import parse_model_output
+    with pytest.raises(ValidationError):
+        parse_model_output('{"intent":"navigate_to_poi","destination_query":"","category":"food","requires_clarification":false,"constraints":[{"kind":"price","text":"便宜","status":"verified"}]}')
+
+
+def test_modifier_embedded_in_model_destination_is_not_accepted_as_verified():
+    from app.services.voice import enforce_constraints
+    intent = NavigationIntent(intent="navigate_to_poi", destination_query="带宠物的餐厅", category="food", requires_clarification=False)
+    result = enforce_constraints("导航去带宠物的餐厅", intent, ("带宠物的餐厅",))
+    assert result.requires_clarification
+    assert any(c.status == "unverified" for c in result.constraints)
+
+
+@pytest.mark.asyncio
+async def test_unknown_model_category_returns_clarification_not_service_failure(monkeypatch):
+    import httpx
+    from app.api import voice
+    original = httpx.AsyncClient
+    def handler(_):
+        return httpx.Response(200, json={"response": '{"intent":"navigate_to_poi","destination_query":"","category":"unknown_category","requires_clarification":false}'})
+    monkeypatch.setattr(voice.httpx, "AsyncClient", lambda **kwargs: original(transport=httpx.MockTransport(handler), **kwargs))
+    result = await voice.parse_intent("找一个特殊设施")
+    assert result.requires_clarification is True
+    assert result.constraints[0].kind == "other"

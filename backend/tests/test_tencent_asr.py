@@ -33,3 +33,28 @@ def test_rejects_empty_or_overlong_audio(pcm):
     asr = TencentASR(client=None, request_factory=None, convert=lambda _: pcm)
     with pytest.raises(AudioError):
         asr.transcribe(b"audio")
+
+
+def test_audio_decoder_timeout_is_distinct(monkeypatch):
+    import subprocess
+    from app.services import tencent_asr
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired("ffmpeg", 20)
+    monkeypatch.setattr(tencent_asr.subprocess, "run", timeout)
+    with pytest.raises(tencent_asr.ASRTimeout):
+        tencent_asr.to_pcm(b"audio")
+
+
+def test_cloud_timeout_is_distinct_even_if_sdk_wraps_it():
+    import requests
+    from app.services.tencent_asr import ASRTimeout
+    class Client:
+        def SentenceRecognition(self, _request):
+            try:
+                raise requests.exceptions.Timeout("timed out")
+            except requests.exceptions.Timeout:
+                raise RuntimeError("SDK wrapped network error")
+    class Request:
+        pass
+    with pytest.raises(ASRTimeout):
+        TencentASR(client=Client(), request_factory=Request, convert=lambda _: b"pcm").transcribe(b"audio")

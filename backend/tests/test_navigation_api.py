@@ -30,6 +30,53 @@ class FakeOsrmClient:
         return MatchedRoad(location=Coordinate(lat=39.9, lon=116.4), distance_m=10)
 
 
+@pytest.mark.parametrize(("distance", "expected_status"), [(10.0, 201), (1794.0, 422), (None, 503), (float("nan"), 503)])
+def test_voice_navigation_requires_checked_road_endpoint(monkeypatch, distance, expected_status):
+    class RouteClient(FakeOsrmClient):
+        async def route(self, origin, destination):
+            route = await super().route(origin, destination)
+            return route.model_copy(update={"road_destination": destination if distance is not None else None, "destination_snap_distance_m": distance})
+    monkeypatch.setenv("VOICE_MAX_DESTINATION_SNAP_M", "100")
+    store = NavigationSessionStore(RouteClient())
+    app.dependency_overrides[get_navigation_store] = lambda: store
+    try:
+        response = TestClient(app).post("/api/navigation/sessions", json={"origin": {"lat": 39.9, "lon": 116.4}, "destination": {"lat": 39.89, "lon": 116.41}, "require_safe_destination": True})
+        assert response.status_code == expected_status
+        if expected_status != 201:
+            assert not store._services
+        if expected_status == 422:
+            assert response.json()["detail"]["distance_m"] == 1794.0
+            assert response.json()["detail"]["road_destination"] == {"lat": 39.89, "lon": 116.41}
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_voice_navigation_requires_configured_snap_policy(monkeypatch):
+    monkeypatch.delenv("VOICE_MAX_DESTINATION_SNAP_M", raising=False)
+    app.dependency_overrides[get_navigation_store] = lambda: NavigationSessionStore(FakeOsrmClient())
+    try:
+        response = TestClient(app).post("/api/navigation/sessions", json={"origin": {"lat": 39.9, "lon": 116.4}, "destination": {"lat": 39.89, "lon": 116.41}, "require_safe_destination": True})
+        assert response.status_code == 503
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_voice_navigation_rejects_unreachable_route(monkeypatch):
+    from app.services.osrm import RouteNotFound
+    class NoRouteClient(FakeOsrmClient):
+        async def route(self, origin, destination):
+            raise RouteNotFound()
+    monkeypatch.setenv("VOICE_MAX_DESTINATION_SNAP_M", "100")
+    store = NavigationSessionStore(NoRouteClient())
+    app.dependency_overrides[get_navigation_store] = lambda: store
+    try:
+        response = TestClient(app).post("/api/navigation/sessions", json={"origin": {"lat": 39.9, "lon": 116.4}, "destination": {"lat": 39.89, "lon": 116.41}, "require_safe_destination": True})
+        assert response.status_code == 404
+        assert not store._services
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_navigation_session_exposes_ready_and_matched_state_over_public_api():
     store = NavigationSessionStore(FakeOsrmClient())
     app.dependency_overrides[get_navigation_store] = lambda: store

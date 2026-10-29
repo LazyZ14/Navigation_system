@@ -14,6 +14,8 @@ export type RouteResponse = {
   distance_m: number;
   duration_s: number;
   maneuvers: Maneuver[];
+  road_destination?: Coordinate | null;
+  destination_snap_distance_m?: number | null;
 };
 
 export type LocationFix = Coordinate & {
