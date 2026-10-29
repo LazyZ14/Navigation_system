@@ -39,7 +39,8 @@ await page.route("**/api/voice/intent", async (route) => {
   const request = route.request().postDataJSON();
   if (request.text === "DELAY") await new Promise((r) => setTimeout(r, 500));
   const name = request.text === "DELAY" ? "A" : request.text;
-  await route.fulfill({ json: { intent: { intent: "navigate_to_poi", destination_query: name, category: null, requires_clarification: false, constraints: [] }, candidates: [{ name, location: candidates[name] || candidates.A }] } });
+  const locationDependent = ["最近", "附近", "沿途"].includes(name);
+  await route.fulfill({ json: { intent: { intent: "navigate_to_poi", destination_query: name, category: null, requires_clarification: false, constraints: locationDependent ? [{ kind: "location", text: name, status: "verified" }] : [] }, candidates: [{ name, location: candidates[name] || candidates.A, distance_m: 200 }], distance_basis: locationDependent ? "straight_line" : null } });
 });
 await page.route("**/api/navigation/sessions", async (route) => {
   const request = route.request().postDataJSON();
@@ -84,22 +85,33 @@ try {
   await page.locator("#voice-record").click();
   await page.locator("#voice-cancel").click();
   await page.waitForTimeout(500);
-  assert.equal(await page.locator("#voice-status").textContent(), "已取消");
+  assert.equal(await page.locator("#voice-status").textContent(), "已取消候选选择");
   await page.evaluate(() => { window.delayMicrophone = false; });
 
   await page.locator("#voice-record").click();
   await page.locator("#voice-record").click();
   await page.locator("#voice-cancel").click();
   await page.waitForTimeout(600);
-  assert.equal(await page.locator("#voice-status").textContent(), "已取消");
+  assert.equal(await page.locator("#voice-status").textContent(), "已取消候选选择");
 
   await page.locator("#voice-text").fill("DELAY");
   await page.locator("#voice-submit").click();
   await page.locator("#voice-cancel").click();
   await page.waitForTimeout(700);
   assert.equal(await page.locator("#voice-candidates button").count(), 0);
-  assert.equal(await page.locator("#voice-status").textContent(), "已取消");
+  assert.equal(await page.locator("#voice-status").textContent(), "已取消候选选择");
 
+  await select("A");
+  await page.locator("#voice-confirm").click();
+  const submittedCount = navigationRequests.length;
+  await page.locator("#voice-candidates button").first().click();
+  await page.locator("#voice-confirm").click();
+  await page.waitForTimeout(100);
+  assert.equal(navigationRequests.length, submittedCount);
+  await page.locator("#voice-cancel").click();
+  assert.match(await page.locator("#voice-status").textContent(), /可能.*(执行|创建)/);
+  await page.waitForTimeout(650);
+  assert.notEqual(await page.locator("#voice-status").textContent(), "路线已规划");
   await select("A");
   await page.locator("#voice-confirm").click();
   await select("B");
@@ -115,6 +127,17 @@ try {
   assert.match(await page.locator("#voice-status").textContent(), /过远/);
   const afterFailure = await page.evaluate(() => JSON.parse(sessionStorage.getItem("offline-navigation-session")));
   assert.equal(afterFailure.sessionId, "session-B");
+  await page.addStyleTag({ content: ".maplibregl-marker { pointer-events: none !important; }" });
+  for (const name of ["最近", "附近", "沿途"]) {
+    await select(name);
+    await page.locator("canvas.maplibregl-canvas").click({ position: { x: 900, y: 500 } });
+    await page.locator("canvas.maplibregl-canvas").click({ position: { x: 910, y: 510 } });
+    assert.equal(await page.locator("#voice-candidates button").count(), 0);
+    assert.equal(await page.locator("#voice-confirm").isDisabled(), true);
+  }
+  await select("A");
+  await page.locator("canvas.maplibregl-canvas").click({ position: { x: 900, y: 500 } });
+  assert.equal(await page.locator("#voice-candidates button").count(), 1);
   console.log("PASS: candidate invalidation, cancellation, reversed route responses, failed route rollback");
 } finally {
   await browser.close();

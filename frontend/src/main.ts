@@ -95,13 +95,20 @@ map.on("load", async () => {
   let candidateMarkers: maplibregl.Marker[] = [];
   let recorder: MediaRecorder | null = null;
   let generation = 0;
+  let locationDependent = false;
+  let originVersion = 0;
+  let pendingVoicePlans = 0;
+  const pendingDestinations = new Set<string>();
   const planGeneration = new RequestVersion();
   let roadDestinationMarker: maplibregl.Marker | null = null;
   async function planRoute(selectedDestination: Coordinate, requireSafeDestination: boolean): Promise<void> {
     if (!origin) { voiceStatus.textContent = "请先选择起点"; return; }
+    const pendingKey = `${origin.lat},${origin.lon}:${selectedDestination.lat},${selectedDestination.lon}`;
+    if (requireSafeDestination && pendingDestinations.has(pendingKey)) { voiceStatus.textContent = "该导航请求正在提交，请等待结果"; return; }
     const planVersion = planGeneration.next();
     const selectedOrigin = origin;
     const selectedTrack = trackSelect.value;
+    if (requireSafeDestination) { pendingVoicePlans++; pendingDestinations.add(pendingKey); voiceStatus.textContent = "正在提交导航请求…"; }
     try {
       const session = await createNavigationSession(selectedOrigin, selectedDestination, selectedTrack, requireSafeDestination);
       if (!planGeneration.isCurrent(planVersion)) return;
@@ -118,7 +125,8 @@ map.on("load", async () => {
       }
       sessionId = session.session_id;
       controller.resetNavigation();
-      controller.renderRoute(session.route);
+      if (session.state.status === "replan_failed") controller.clearRoute();
+      else controller.renderRoute(session.route);
       summary.textContent = navigationLabel(session.state);
       if (requireSafeDestination && session.route.destination_snap_distance_m != null) voiceStatus.textContent = `路线已规划；道路终点与地点相距 ${Math.round(session.route.destination_snap_distance_m)} 米`;
       replayButton.disabled = false;
@@ -130,6 +138,8 @@ map.on("load", async () => {
       if (!planGeneration.isCurrent(planVersion)) return;
       if (requireSafeDestination) voiceStatus.textContent = error instanceof Error ? error.message : "无法规划路线";
       else summary.textContent = navigationErrorLabel(error instanceof Error ? error : new Error("unknown"));
+    } finally {
+      if (requireSafeDestination) { pendingVoicePlans--; pendingDestinations.delete(pendingKey); }
     }
   }
   const selection = new VoiceSelection(async (candidate: Candidate) => {
@@ -147,6 +157,8 @@ map.on("load", async () => {
     const text = voiceText.value.trim();
     if (!text) { voiceStatus.textContent = "请输入目的地需求"; return; }
     const current = ++generation;
+    const queryOriginVersion = originVersion;
+    locationDependent = /附近|最近|就近|周边|沿途|顺路/.test(text);
     clearCandidates();
     voiceStatus.textContent = "正在理解需求…";
     try {
@@ -155,8 +167,10 @@ map.on("load", async () => {
         const body = await response.json().catch(() => ({})) as { detail?: string };
         throw new Error(body.detail === "poi_catalog_rebuild_required" ? "地点检索数据未生成，请重新构建地图数据" : "需求解析或地点数据不可用");
       }
-      const result = await response.json() as { intent: { intent: string; destination_query: string; category?: string | null; requires_clarification: boolean; constraints?: { text: string; status: string }[] }; candidates: (Candidate & { distance_m?: number })[]; distance_basis?: string | null };
+      const result = await response.json() as { intent: { intent: string; destination_query: string; category?: string | null; requires_clarification: boolean; constraints?: { kind: string; text: string; status: string }[] }; candidates: (Candidate & { distance_m?: number })[]; distance_basis?: string | null };
       if (current !== generation) return;
+      locationDependent ||= result.distance_basis != null || !!result.intent.constraints?.some((item) => item.kind === "location");
+      if (locationDependent && queryOriginVersion !== originVersion) { clearCandidates(); voiceStatus.textContent = "起点已改变，请重新查询位置相关候选"; return; }
       const categoryNames: Record<string, string> = { food: "餐饮", cafe: "咖啡店", parking: "停车场", fuel: "加油站", hotel: "酒店", park: "公园", supermarket: "超市", convenience: "便利店", pharmacy: "药店", bank: "银行", police: "警察局", station: "车站", bakery: "面包店", mall: "商场", department_store: "百货店", clothes: "服装店", books: "书店", attraction: "景点", museum: "博物馆", sports_centre: "体育中心", stadium: "体育场", government: "政府机构", school: "学校", university: "大学", hospital: "医院" };
       const destinationLabel = result.intent.destination_query || categoryNames[result.intent.category || ""] || "未明确";
       voiceIntent.textContent = `意图：${result.intent.intent === "navigate_to_poi" ? "查找地点" : "无法识别"}；需求：${destinationLabel}`;
@@ -176,7 +190,7 @@ map.on("load", async () => {
   document.querySelector<HTMLButtonElement>("#voice-submit")!.addEventListener("click", () => void parseVoice());
   voiceText.addEventListener("input", () => { generation++; planGeneration.invalidate(); if (recorder?.state === "recording") recorder.stop(); clearCandidates(); voiceIntent.textContent = ""; });
   trackSelect.addEventListener("change", () => planGeneration.invalidate());
-  document.querySelector<HTMLButtonElement>("#voice-cancel")!.addEventListener("click", () => { generation++; planGeneration.invalidate(); if (recorder?.state === "recording") recorder.stop(); clearCandidates(); voiceStatus.textContent = "已取消"; });
+  document.querySelector<HTMLButtonElement>("#voice-cancel")!.addEventListener("click", () => { generation++; planGeneration.invalidate(); if (recorder?.state === "recording") recorder.stop(); clearCandidates(); voiceStatus.textContent = pendingVoicePlans ? "已取消当前显示；已提交的导航请求可能已创建会话" : "已取消候选选择"; });
   confirm.addEventListener("click", () => { confirm.disabled = true; void selection.confirm(); });
   record.addEventListener("click", async () => {
     if (recorder && recorder.state === "recording") { recorder.stop(); return; }
@@ -231,8 +245,8 @@ map.on("load", async () => {
         const road = session.route.road_destination;
         roadDestinationMarker = new maplibregl.Marker({ color: "#2563eb" }).setLngLat([road.lon, road.lat]).setPopup(new maplibregl.Popup().setText(`道路终点，与地点相距 ${Math.round(session.route.destination_snap_distance_m ?? 0)} 米`)).addTo(map);
       }
-      controller.renderRoute(session.route);
-      controller.updateNavigation(session.state);
+      if (session.state.status === "replan_failed") controller.clearRoute();
+      else { controller.renderRoute(session.route); controller.updateNavigation(session.state); }
       summary.textContent = navigationLabel(session.state);
       replayCompleted = session.state.status === "arrived" || session.state.status === "replay_finished";
       replayButton.disabled = false;
@@ -248,6 +262,8 @@ map.on("load", async () => {
     roadDestinationMarker = null;
     const geographicCoordinate: Coordinate = { lat: event.lngLat.lat, lon: event.lngLat.lng };
     if (origin === null || destination !== null) {
+      originVersion++;
+      if (locationDependent) { generation++; clearCandidates(); voiceStatus.textContent = "起点已改变，请重新查询位置相关候选"; locationDependent = false; }
       origin = geographicCoordinate;
       destination = null;
       safeDestinationRequired = false;
@@ -282,10 +298,13 @@ map.on("load", async () => {
     if (!replayRunning || sessionId === null) return;
     try {
       const session = await requestReplayNext(sessionId);
-      controller.renderRoute(session.route);
-      controller.updateNavigation(session.state);
+      if (session.state.status === "replan_failed") controller.clearRoute();
+      else { controller.renderRoute(session.route); controller.updateNavigation(session.state); }
       summary.textContent = navigationLabel(session.state);
-      if (session.state.status === "arrived" || session.state.status === "replay_finished") {
+      if (session.state.status === "replan_failed") {
+        stopReplayTimer();
+        replayButton.textContent = "继续模拟回放";
+      } else if (session.state.status === "arrived" || session.state.status === "replay_finished") {
         stopReplayTimer();
         replayCompleted = true;
         replayButton.textContent = "重新模拟回放";

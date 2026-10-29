@@ -429,3 +429,37 @@ def test_nearby_needs_explicit_radius_and_filters_outside(monkeypatch):
         assert result["distance_basis"] == "straight_line"
     finally:
         app.dependency_overrides.clear()
+def test_primary_school_does_not_include_unverified_schools():
+    from app.api.voice import get_intent_parser, get_poi_catalog
+    from app.services.voice import NavigationIntent
+    async def parse(_):
+        return NavigationIntent(intent="navigate_to_poi", destination_query="小学", category="school", requires_clarification=False)
+    app.dependency_overrides[get_intent_parser] = lambda: parse
+    app.dependency_overrides[get_poi_catalog] = lambda: [
+        {"name": "中学", "category": "school", "location": {"lat": 22.3, "lon": 113.5}},
+        {"name": "小学", "category": "school", "location": {"lat": 22.3, "lon": 113.5}},
+    ]
+    try:
+        data = TestClient(app).post("/api/voice/intent", json={"text": "找小学"}).json()
+        assert data["intent"]["requires_clarification"] is True
+        assert data["candidates"] == []
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize(("query", "category", "expected"), [("小学", "school", ["初等"]), ("中学", "school", ["中等"]), ("学校", "school", ["初等", "中等", "未知"]), ("大学", "university", ["大学"])])
+def test_school_level_uses_osm_isced_tags(query, category, expected):
+    from app.api.voice import get_intent_parser, get_poi_catalog
+    from app.services.voice import NavigationIntent
+    async def parse(_):
+        return NavigationIntent(intent="navigate_to_poi", destination_query=query, category=category, requires_clarification=False)
+    app.dependency_overrides[get_intent_parser] = lambda: parse
+    app.dependency_overrides[get_poi_catalog] = lambda: [
+        {"name": name, "category": kind, "isced_level": level, "location": {"lat": 22.3, "lon": 113.5}}
+        for name, kind, level in [("初等", "school", "1"), ("中等", "school", "2;3"), ("未知", "school", ""), ("大学", "university", "")]
+    ]
+    try:
+        data = TestClient(app).post("/api/voice/intent", json={"text": "找" + query}).json()
+        assert sorted(p["name"] for p in data["candidates"]) == sorted(expected)
+    finally:
+        app.dependency_overrides.clear()

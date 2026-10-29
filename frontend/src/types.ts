@@ -26,7 +26,7 @@ export type LocationFix = Coordinate & {
 };
 
 export type NavigationState = {
-  status: "ready" | "navigating" | "unmatched" | "arrived" | "replay_finished";
+  status: "ready" | "navigating" | "unmatched" | "arrived" | "replay_finished" | "replan_failed";
   raw_location: LocationFix | null;
   matched_location: Coordinate | null;
   next_maneuver: Maneuver | null;

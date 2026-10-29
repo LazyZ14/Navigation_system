@@ -91,7 +91,7 @@ def get_poi_catalog():
         collection = json.loads(search_path.read_text(encoding="utf-8"))
         return [{"name": f["properties"]["display_name"], "real_name": f["properties"]["name"],
                  "names": f["properties"]["names"], "osm_id": f["properties"]["osm_id"],
-                 "source_type": f["properties"]["source_type"], "category": f["properties"]["subclass"],
+                 "source_type": f["properties"]["source_type"], "category": f["properties"]["subclass"], "isced_level": f["properties"].get("isced_level", ""),
                  "location": Coordinate(lat=f["geometry"]["coordinates"][1], lon=f["geometry"]["coordinates"][0]).model_dump()}
                 for f in collection["features"] if f["geometry"]["type"] == "Point"]
     except (OSError, ValueError, KeyError, TypeError, IndexError):
@@ -104,6 +104,13 @@ async def intent(request: TextRequest, parser=Depends(get_intent_parser), catalo
     known_names = tuple(name for point in catalog for name in [point.get("real_name", point["name"]), *point.get("names", {}).values()] if name)
     parsed = enforce_constraints(request.text, model_intent, known_names)
     constraints = parsed.constraints
+    school_level = "primary" if "小学" in request.text else "secondary" if "中学" in request.text else None
+    school_candidates = []
+    if school_level and model_intent.intent == "navigate_to_poi":
+        levels = {"1"} if school_level == "primary" else {"2", "3"}
+        school_candidates = [p for p in catalog if p["category"] == "school" and levels.intersection(re.split(r"[;,]", p.get("isced_level", "")))]
+        if not school_candidates:
+            constraints = [*constraints, UnverifiedConstraint(kind="other", text="学校层级缺少可验证的 OSM 标签")]
     try:
         nearby_radius = float(os.getenv("VOICE_NEARBY_RADIUS_M", ""))
         if not math.isfinite(nearby_radius) or nearby_radius <= 0:
@@ -135,6 +142,8 @@ async def intent(request: TextRequest, parser=Depends(get_intent_parser), catalo
             candidates = [p for p in catalog if any(query in normalize(value) for value in [p.get("real_name", p["name"]), *p.get("names", {}).values()] if value) or (query in ("停车", "停车场", "车位") and p["category"] == "parking")]
         elif parsed.category:
             candidates = [p for p in catalog if p["category"] in CATEGORY_SUBCLASSES[parsed.category]]
+        if school_level:
+            candidates = [p for p in candidates if p in school_candidates]
         location_required = any(c.kind == "location" and c.status == "verified" for c in constraints)
         if location_required and request.origin is not None:
             def straight_line(candidate):

@@ -68,7 +68,7 @@ class NavigationState(BaseModel):
         }
     )
 
-    status: Literal["ready", "navigating", "unmatched", "arrived", "replay_finished"]
+    status: Literal["ready", "navigating", "unmatched", "arrived", "replay_finished", "replan_failed"]
     raw_location: LocationFix | None = None
     matched_location: Coordinate | None = None
     next_maneuver: Maneuver | None = None

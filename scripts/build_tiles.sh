@@ -628,7 +628,7 @@ def build_search_catalog(input_path: Path) -> dict[str, object]:
                 continue
             names = {key: item_tags[key] for key in ("name", "name:zh", "name:en", "alt_name", "short_name") if item_tags.get(key)}
             display_name = name or ("未命名停车场" if subclass == "parking" else f"未命名地点（{subclass}）")
-            records.append(feature("Point", anchor, {"osm_id": f"{kind}/{element.attrib['id']}", "source_type": source_type or "place", "subclass": subclass, "name": name, "display_name": display_name, "names": names}))
+            records.append(feature("Point", anchor, {"osm_id": f"{kind}/{element.attrib['id']}", "source_type": source_type or "place", "subclass": subclass, "name": name, "display_name": display_name, "names": names, "isced_level": item_tags.get("isced:level", "")}))
     return {"type": "FeatureCollection", "features": records}
 
 

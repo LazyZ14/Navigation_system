@@ -50,12 +50,13 @@ def test_search_catalog_handles_school_ways_and_hospital_relations(tmp_path):
     source.write_text('''<osm>
       <node id="1" lat="1" lon="1"/><node id="2" lat="1" lon="2"/>
       <node id="3" lat="2" lon="2"/><node id="4" lat="2" lon="1"/>
-      <way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/><tag k="amenity" v="school"/><tag k="name" v="学校"/></way>
+      <way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/><tag k="amenity" v="school"/><tag k="name" v="学校"/><tag k="isced:level" v="1;2"/></way>
       <way id="11"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/></way>
       <relation id="20"><member type="way" ref="11" role="outer"/><tag k="type" v="multipolygon"/><tag k="amenity" v="hospital"/><tag k="name" v="医院"/></relation>
     </osm>''')
     records = build_tiles.build_search_catalog(source)["features"]
     assert [(r["properties"]["osm_id"], r["properties"]["subclass"]) for r in records] == [("way/10", "school"), ("relation/20", "hospital")]
+    assert records[0]["properties"]["isced_level"] == "1;2"
     assert all(r["geometry"]["type"] == "Point" for r in records)
 
 
