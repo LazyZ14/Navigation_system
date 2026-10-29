@@ -22,6 +22,9 @@ docker run --rm --name voice01-osrm -p 127.0.0.1:15000:5000 -v "$PWD/data/osrm:/
 read -r -p 'Tencent SecretId: ' TENCENT_SECRET_ID
 read -r -s -p 'Tencent SecretKey: ' TENCENT_SECRET_KEY; printf '\n'
 export TENCENT_SECRET_ID TENCENT_SECRET_KEY
+# 根据实验区域和驾驶安全评估输入允许的终点吸附偏差（米）；未配置时语音候选导航会拒绝创建会话。
+read -r -p 'Maximum destination snap distance in metres: ' VOICE_MAX_DESTINATION_SNAP_M
+export VOICE_MAX_DESTINATION_SNAP_M
 OSRM_BASE_URL=http://127.0.0.1:15000 PYTHONPATH=backend backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 18000
 ```
 
@@ -33,6 +36,10 @@ VOICE_API_URL=http://127.0.0.1:18000 npm run dev -- --host 127.0.0.1 --port 1517
 ```
 
 打开 `http://localhost:15173/`。选择或保留演示起点，点击“开始录音”，说出需求后点击“停止录音”；也可以直接输入文本并点击“解析需求”。录音不超过 60 秒；选择地图上的候选对应按钮，点击“确认导航”；取消不会创建导航会话。服务不可用和没有候选时界面会提示。结束时分别在三个终端按 Ctrl-C。默认 Ollama 地址是 `http://127.0.0.1:11434`，可通过 `OLLAMA_URL`、`OLLAMA_MODEL` 配置。
+
+按名称或类别检索使用由构建脚本生成的 `search-poi.geojson`；升级后需要重新运行地图构建。结果按名称稳定排序；“最近”使用页面选定的起点和直线距离，并不代表驾驶距离或偏好排序。“附近”还必须由运营者设置 `VOICE_NEARBY_RADIUS_M`（正数，米）；“沿途”及不能验证的营业、价格、停车条件等请求需要澄清。语音导航会显示 OSM 目的地与 OSRM 道路终点，阈值仅由具体测试场景配置，不是通用安全距离。
+
+语音接口默认只接受 `localhost`/`127.0.0.1` 的演示页面 Origin，且每个进程最多并发两个音频请求；允许列表可用 `VOICE_ALLOWED_ORIGINS` 配置。Origin 校验不是身份认证：不要将带云凭证的 API 直接暴露到局域网或公网，局域网使用需另行设置 TLS、身份认证和网络限制。默认 `scripts/demo.sh` 的 Compose API 未配置 Voice-01 的云 SDK、ffmpeg、检索数据或主机 Ollama；使用上述独立服务步骤才能使用语音功能。
 
 本地离线导航与 GPS 数据采集系统，支持 macOS Web 界面导航和 iPhone 原始定位录制。
 
@@ -155,6 +162,21 @@ python3 scripts/analyze_gps_recording.py /path/to/exported/file.jsonl
 bash scripts/smoke_test.sh
 ```
 
+语音交互浏览器回归使用合成请求和录音替身，不调用腾讯云。需准备 Chrome 和临时安装的 `playwright-core`，在两个终端分别执行：
+
+```bash
+cd frontend
+npm run dev -- --host 127.0.0.1 --port 16173 --strictPort
+```
+
+```bash
+npm install --prefix /tmp/voice01-browser-test playwright-core
+cd frontend
+PLAYWRIGHT_CORE_HOME=/tmp/voice01-browser-test CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" node tests/voice-flow.browser.mjs
+```
+
+其他系统将 `CHROME_PATH` 替换为本机 Chrome 路径。真实模型的合成需求评测见 [评测说明](backend/tests/evaluation/README.md)。
+
 本地容器关系为：浏览器 → `frontend`（Nginx/MapLibre）→ `api`（FastAPI）→ `osrm`。
 前端通过 Nginx 将 `/api` 反向代理给 FastAPI，不直接调用 OSRM；离线道路 GeoJSON 由
 `frontend` 容器静态提供。三个容器用于隔离职责并让启动可复现，并非业务逻辑必须依赖 Docker。
@@ -162,8 +184,8 @@ bash scripts/smoke_test.sh
 ## 非目标（第一阶段）
 
 以下内容不在当前实现范围内：
-- 基于本地 LLM 的模糊需求理解或 POI 推荐
-- 腾讯云语音识别、语音合成与语音交互
+- 基于完整语义理解的 POI 推荐、营业状态或其他未经验证属性筛选
+- 离线语音识别、语音合成与连续语音交互
 - 商铺招牌 OCR、视觉 BBox 和到达确认
 - 真实 GNSS、手机定位或车辆 CAN 数据接入（Phase 2 仅提供采集接口）
 - 实时交通、云端地图和生产级高可用部署
