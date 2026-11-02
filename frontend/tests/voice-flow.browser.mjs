@@ -10,6 +10,15 @@ const { chromium } = require("playwright-core");
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH, headless: true, args: ["--use-gl=angle", "--use-angle=swiftshader"] });
 const page = await browser.newPage();
 const navigationRequests = [];
+const pendingNavigation = [];
+const waitForCount = async (count) => {
+  const deadline = Date.now() + 10000;
+  while (pendingNavigation.length < count) {
+    if (Date.now() > deadline) throw new Error(`Expected ${count} navigation requests, got ${pendingNavigation.length}`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return pendingNavigation[count - 1];
+};
 const coord = (lat, lon) => ({ lat, lon });
 const origin = coord(22.3718, 113.5806);
 const candidates = { A: coord(22.375, 113.576), B: coord(22.386, 113.56), FAIL: coord(22.39, 113.56) };
@@ -48,13 +57,20 @@ await page.route("**/api/navigation/sessions", async (route) => {
   assert.equal(request.require_safe_destination, true);
   const isA = request.destination.lat === candidates.A.lat;
   const isFail = request.destination.lat === candidates.FAIL.lat;
-  await new Promise((r) => setTimeout(r, isA ? 550 : 50));
-  if (isFail) return route.fulfill({ status: 422, json: { detail: { code: "destination_snap_too_far" } } });
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  let finished;
+  const done = new Promise((resolve) => { finished = resolve; });
+  pendingNavigation.push({ request, release, done });
+  await gate;
+  try {
+  if (isFail) return await route.fulfill({ status: 422, json: { detail: { code: "destination_snap_too_far" } } });
   await route.fulfill({ status: 201, json: {
     session_id: isA ? "session-A" : "session-B",
     route: { geometry: [origin, request.destination], distance_m: 100, duration_s: 20, maneuvers: [], road_destination: request.destination, destination_snap_distance_m: 10 },
     state: { status: "ready", raw_location: null, matched_location: null, next_maneuver: null, remaining_distance_m: 100, off_route: false, progress: 0 },
   } });
+  } finally { finished(); }
 });
 
 try {
@@ -103,30 +119,44 @@ try {
 
   await select("A");
   await page.locator("#voice-confirm").click();
-  const submittedCount = navigationRequests.length;
+  const first = await waitForCount(1);
+  assert.equal(await page.locator("#voice-status").textContent(), "正在提交导航请求…");
+  assert.equal(await page.evaluate(() => sessionStorage.getItem("offline-navigation-session")), null);
   await page.locator("#voice-candidates button").first().click();
   await page.locator("#voice-confirm").click();
-  await page.waitForTimeout(100);
-  assert.equal(navigationRequests.length, submittedCount);
+  assert.equal(navigationRequests.length, 1);
   await page.locator("#voice-cancel").click();
   assert.match(await page.locator("#voice-status").textContent(), /可能.*(执行|创建)/);
-  await page.waitForTimeout(650);
-  assert.notEqual(await page.locator("#voice-status").textContent(), "路线已规划");
-  await select("A");
-  await page.locator("#voice-confirm").click();
+  assert.equal(navigationRequests.length, 1);
   await select("B");
   await page.locator("#voice-confirm").click();
-  await page.waitForTimeout(800);
+  const second = await waitForCount(2);
+  second.release();
+  await second.done;
+  await page.waitForFunction(() => JSON.parse(sessionStorage.getItem("offline-navigation-session") || "null")?.sessionId === "session-B");
+  first.release();
+  await first.done;
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+  await page.waitForFunction(() => document.querySelector("#voice-status").textContent.includes("路线已规划"));
   const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("offline-navigation-session")));
   assert.equal(saved.sessionId, "session-B");
   assert.equal(saved.safeDestinationRequired, true);
+  await page.locator("#voice-cancel").click();
+  assert.equal(await page.locator("#voice-status").textContent(), "已取消候选选择");
+  assert.equal((await page.evaluate(() => JSON.parse(sessionStorage.getItem("offline-navigation-session")))).sessionId, "session-B");
 
   await select("FAIL");
   await page.locator("#voice-confirm").click();
-  await page.waitForTimeout(200);
+  const failed = await waitForCount(3);
+  failed.release();
+  await failed.done;
+  await page.waitForFunction(() => document.querySelector("#voice-status").textContent.includes("过远"));
   assert.match(await page.locator("#voice-status").textContent(), /过远/);
   const afterFailure = await page.evaluate(() => JSON.parse(sessionStorage.getItem("offline-navigation-session")));
   assert.equal(afterFailure.sessionId, "session-B");
+  await page.locator("#voice-cancel").click();
+  assert.equal(await page.locator("#voice-candidates button").count(), 0);
+  assert.equal((await page.evaluate(() => JSON.parse(sessionStorage.getItem("offline-navigation-session")))).sessionId, "session-B");
   await page.addStyleTag({ content: ".maplibregl-marker { pointer-events: none !important; }" });
   for (const name of ["最近", "附近", "沿途"]) {
     await select(name);
