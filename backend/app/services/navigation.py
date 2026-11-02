@@ -1,4 +1,5 @@
 import asyncio
+import math
 from collections.abc import AsyncIterator
 from typing import Protocol
 from uuid import uuid4
@@ -17,10 +18,12 @@ class NearestRoadClient(Protocol):
 
 
 class NavigationService:
-    def __init__(self, client: NearestRoadClient, route: RouteResponse | None = None, destination: Coordinate | None = None):
+    def __init__(self, client: NearestRoadClient, route: RouteResponse | None = None, destination: Coordinate | None = None, max_destination_snap_m: float | None = None):
         self._client = client
         self._route = route
         self._destination = destination
+        self._max_destination_snap_m = max_destination_snap_m
+        self._replan_failed = False
         self._deviation_count = 0
         self._last_replan_at = None
         self._previous_match: RouteMatch | None = None
@@ -50,16 +53,26 @@ class NavigationService:
             if self._deviation_count >= 3 and cooldown_elapsed and hasattr(self._client, "route"):
                 try:
                     replacement = await self._client.route(matched.location, self._destination)  # type: ignore[attr-defined]
-                except (RouteNotFound, httpx.HTTPError, OSError):
+                    if self._max_destination_snap_m is not None:
+                        validate_destination_snap(replacement, self._destination, self._max_destination_snap_m)
+                except (RouteNotFound, httpx.HTTPError, OSError, DestinationSnapUnavailable, DestinationSnapTooFar):
                     replacement = None
+                    if self._max_destination_snap_m is not None:
+                        self._replan_failed = True
                 self._deviation_count = 0
                 self._last_replan_at = fix.timestamp
                 if replacement is not None:
                     self._route = replacement
+                    self._replan_failed = False
                     self._previous_match = None  # Reset continuity on route change
                     off_route = True
         else:
             self._deviation_count = 0
+            self._replan_failed = False
+
+        if self._replan_failed:
+            self._state = NavigationState(status="replan_failed", raw_location=fix, matched_location=matched.location, off_route=True)
+            return self._state
 
         # Use continuity-aware route matching if we have a route
         if self._route:
@@ -100,6 +113,8 @@ class NavigationService:
         return self._state
 
     def finish_replay(self) -> NavigationState:
+        if self._state.status == "replan_failed":
+            return self._state
         arrived = (
             self._state.matched_location is not None
             and self._destination is not None
@@ -115,6 +130,28 @@ class NavigationRouteClient(NearestRoadClient, Protocol):
     async def route(self, origin: Coordinate, destination: Coordinate) -> RouteResponse: ...
 
 
+class DestinationSnapUnavailable(Exception):
+    pass
+
+
+class DestinationSnapTooFar(Exception):
+    def __init__(self, distance_m: float, road_destination: Coordinate):
+        self.distance_m = distance_m
+        self.road_destination = road_destination
+
+
+def validate_destination_snap(route: RouteResponse, destination: Coordinate, threshold: float) -> None:
+    road = route.road_destination
+    distance = route.destination_snap_distance_m
+    if road is None or distance is None or not math.isfinite(distance) or distance < 0 or not route.geometry:
+        raise DestinationSnapUnavailable()
+    # OSRM's road endpoint and the route geometry must describe the same point.
+    if distance_between_m(road, route.geometry[-1]) > 2:
+        raise DestinationSnapUnavailable()
+    if distance > threshold or distance_between_m(destination, road) > threshold + 2:
+        raise DestinationSnapTooFar(distance, road)
+
+
 class NavigationSessionStore:
     def __init__(self, client: NavigationRouteClient, tracks: dict[str, list[LocationFix]] | None = None):
         self._client = client
@@ -126,9 +163,11 @@ class NavigationSessionStore:
         self._locks: dict[str, asyncio.Lock] = {}
 
     async def create(
-        self, origin: Coordinate, destination: Coordinate, track_id: str | None = None
+        self, origin: Coordinate, destination: Coordinate, track_id: str | None = None, max_destination_snap_m: float | None = None
     ) -> NavigationSession:
         route = await self._client.route(origin, destination)
+        if max_destination_snap_m is not None:
+            validate_destination_snap(route, destination, max_destination_snap_m)
         points = None
         if track_id == "current-route":
             from app.services.track_generator import generate_route_track
@@ -138,7 +177,7 @@ class NavigationSessionStore:
             if points is None:
                 raise ValueError("unknown synthetic track")
         session_id = str(uuid4())
-        service = NavigationService(self._client, route, destination=destination)
+        service = NavigationService(self._client, route, destination=destination, max_destination_snap_m=max_destination_snap_m)
         self._services[session_id] = service
         self._routes[session_id] = route
         self._locks[session_id] = asyncio.Lock()

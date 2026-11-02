@@ -337,6 +337,7 @@ ROAD_PRIORITY = {"trunk": 1, "primary": 1, "secondary": 2, "tertiary": 2, "resid
 INSTITUTIONAL_AMENITIES = {"school", "hospital", "theatre"}
 POI_MAPPING: dict[str, dict[str, tuple[str, int]]] = {
     "amenity": {
+        "parking": ("transport", 5),
         "restaurant": ("food", 3),
         "cafe": ("food", 3),
         "fast_food": ("food", 3),
@@ -419,7 +420,7 @@ def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[st
         if error is not None:
             continue
         assert geometry is not None
-        label_name = select_label_name(relation_tags)
+        label_name = select_label_name(relation_tags) or ("停车场" if relation_tags.get("amenity") == "parking" else None)
         if label_name is None:
             continue
         building_tag = relation_tags.get("building")
@@ -476,7 +477,7 @@ def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[st
                     labels["poi"]["features"].append(poi_feature)
 
     for way_id, (refs, way_tags) in ways.items():
-        label_name = select_label_name(way_tags)
+        label_name = select_label_name(way_tags) or ("停车场" if way_tags.get("amenity") == "parking" else None)
         road_class = way_tags.get("highway")
         coordinates = coordinates_for(refs, nodes)
         if road_class in LABEL_ROAD_CLASSES and label_name is not None and coordinates is not None and len(coordinates) >= 2:
@@ -551,7 +552,7 @@ def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[st
     for node in root.findall("node"):
         node_id = node.attrib["id"]
         node_tags = tags(node)
-        label_name = select_label_name(node_tags)
+        label_name = select_label_name(node_tags) or ("停车场" if node_tags.get("amenity") == "parking" else None)
         if label_name is None:
             continue
         coordinate = nodes[node_id]
@@ -594,11 +595,48 @@ def build_label_feature_collections(input_path: Path) -> tuple[dict[str, dict[st
     return labels, reports
 
 
+def build_search_catalog(input_path: Path) -> dict[str, object]:
+    """Retain OSM identities and names independently of visual map labels."""
+    root = ElementTree.parse(input_path).getroot()
+    nodes = {node.attrib["id"]: (float(node.attrib["lon"]), float(node.attrib["lat"])) for node in root.findall("node")}
+    ways = {way.attrib["id"]: ([nd.attrib["ref"] for nd in way.findall("nd")], tags(way)) for way in root.findall("way")}
+    mapping = {key: set(value) for key, value in POI_MAPPING.items()}
+    mapping["amenity"] |= {"school", "university", "college", "hospital"}
+    records: list[dict[str, object]] = []
+    for kind in ("node", "way", "relation"):
+        for element in root.findall(kind):
+            item_tags = tags(element)
+            source_type = next((key for key, values in mapping.items() if item_tags.get(key) in values), None)
+            name = select_label_name(item_tags) or ""
+            if source_type is None and not (name and (item_tags.get("building") is not None or item_tags.get("place") is not None)):
+                continue
+            subclass = item_tags.get(source_type, "") if source_type else ""
+            if kind == "node":
+                anchor = list(nodes[element.attrib["id"]])
+            elif kind == "way":
+                refs = ways[element.attrib["id"]][0]
+                coordinates = coordinates_for(refs, nodes)
+                if coordinates is None or len(refs) < 4 or refs[0] != refs[-1]:
+                    continue
+                anchor, _ = representative_point({"type": "Polygon", "coordinates": [coordinates]})
+            else:
+                geometry, _, error = multipolygon_geometry(element, ways, nodes)
+                if error or geometry is None:
+                    continue
+                anchor, _ = representative_point(geometry)
+            if anchor is None:
+                continue
+            names = {key: item_tags[key] for key in ("name", "name:zh", "name:en", "alt_name", "short_name") if item_tags.get(key)}
+            display_name = name or ("未命名停车场" if subclass == "parking" else f"未命名地点（{subclass}）")
+            records.append(feature("Point", anchor, {"osm_id": f"{kind}/{element.attrib['id']}", "source_type": source_type or "place", "subclass": subclass, "name": name, "display_name": display_name, "names": names, "isced_level": item_tags.get("isced:level", "")}))
+    return {"type": "FeatureCollection", "features": records}
+
+
 def write_feature_collections(feature_collections: dict[str, dict[str, object]], output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "map-roads.geojson").unlink(missing_ok=True)
     outputs: list[Path] = []
-    for name in LAYER_NAMES + LABEL_LAYER_NAMES:
+    for name in LAYER_NAMES + LABEL_LAYER_NAMES + ("search-poi",):
         if name not in feature_collections:
             continue
         output = output_dir / f"{name}.geojson"
@@ -619,6 +657,7 @@ def main() -> None:
     combined: dict[str, dict[str, object]] = {}
     combined.update(layers)
     combined.update(labels)
+    combined["search-poi"] = build_search_catalog(args.input)
     outputs = write_feature_collections(combined, project_root / "frontend" / "public" / "generated")
     for report in geometry_reports + label_reports:
         print(report, file=sys.stderr)

@@ -43,6 +43,59 @@ class ReplanningClient:
 
 
 @pytest.mark.asyncio
+async def test_safe_session_rejects_unsafe_replan_and_clears_guidance():
+    from app.services.navigation import NavigationSessionStore
+    origin = Coordinate(lat=39.9, lon=116.4)
+    destination = Coordinate(lat=39.9, lon=116.41)
+    initial = RouteResponse(geometry=[origin, destination], distance_m=1000, duration_s=120, maneuvers=[], road_destination=destination, destination_snap_distance_m=10)
+    client = ReplanningClient([MatchedRoad(Coordinate(lat=39.9005, lon=116.4), 5) for _ in range(3)])
+    client.replacement = initial
+    store = NavigationSessionStore(client)
+    session = await store.create(origin, destination, max_destination_snap_m=100)
+    client.replacement = initial.model_copy(update={"destination_snap_distance_m": 1794})
+    for _ in range(3):
+        result = await store.apply_fix(session.session_id, fix())
+    assert result.route == initial
+    assert result.state.status == "replan_failed"
+    assert result.state.next_maneuver is None
+    assert result.state.remaining_distance_m is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["safe", "missing", "unavailable", "mismatched"])
+async def test_safe_replan_validation_and_subscriber_state(mode):
+    from app.services.navigation import NavigationSessionStore
+    origin = Coordinate(lat=39.9, lon=116.4)
+    destination = Coordinate(lat=39.9, lon=116.41)
+    initial = RouteResponse(geometry=[origin, destination], distance_m=1000, duration_s=120, maneuvers=[], road_destination=destination, destination_snap_distance_m=10)
+    client = ReplanningClient([MatchedRoad(Coordinate(lat=39.9005, lon=116.4), 5) for _ in range(3)])
+    client.replacement = initial
+    store = NavigationSessionStore(client)
+    session = await store.create(origin, destination, max_destination_snap_m=100)
+    events = store.subscribe(session.session_id)
+    await anext(events)
+    client.replacement = initial.model_copy(update={"distance_m": 600, "destination_snap_distance_m": 20})
+    if mode == "missing":
+        client.replacement = client.replacement.model_copy(update={"road_destination": None, "destination_snap_distance_m": None})
+    if mode == "mismatched":
+        client.replacement = client.replacement.model_copy(update={"road_destination": Coordinate(lat=39.92, lon=116.41)})
+    if mode == "unavailable":
+        client.route_error = RouteNotFound()
+    for _ in range(3):
+        result = await store.apply_fix(session.session_id, fix())
+    published = await anext(events)
+    await events.aclose()
+    assert published == result == store.get(session.session_id)
+    if mode == "safe":
+        assert result.route.distance_m == 600
+        assert result.state.status == "navigating" and result.state.off_route
+    else:
+        assert result.route == initial
+        assert result.state.status == "replan_failed"
+        assert result.state.next_maneuver is None and result.state.remaining_distance_m is None
+
+
+@pytest.mark.asyncio
 async def test_nearby_road_match_returns_navigating_state():
     service = NavigationService(FakeOsrmClient(MatchedRoad(location=Coordinate(lat=39.9, lon=116.4), distance_m=20)))
 

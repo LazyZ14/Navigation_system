@@ -5,6 +5,27 @@ from app.models import Coordinate
 from app.services.osrm import OsrmClient, RouteNotFound, create_local_http_client
 
 
+@pytest.mark.asyncio
+async def test_route_reports_actual_destination_waypoint_and_snap_distance():
+    async def handler(_request):
+        return httpx.Response(200, json={"code": "Ok", "waypoints": [{"location": [116.4, 39.9], "distance": 1}, {"location": [116.41, 39.89], "distance": 34.5}], "routes": [{"distance": 100, "duration": 20, "geometry": {"coordinates": [[116.4, 39.9], [116.41, 39.89]]}, "legs": []}]})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        result = await OsrmClient("http://router.local", http_client=http_client).route(Coordinate(lat=39.9, lon=116.4), Coordinate(lat=39.89, lon=116.41))
+    assert result.destination_snap_distance_m == 34.5
+    assert result.road_destination == Coordinate(lat=39.89, lon=116.41)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("distance", [-1, "10", None])
+async def test_route_rejects_malformed_snap_information(distance):
+    async def handler(_request):
+        return httpx.Response(200, json={"code": "Ok", "waypoints": [{}, {"location": [116.41, 39.89], "distance": distance}], "routes": [{"distance": 100, "duration": 20, "geometry": {"coordinates": [[116.4, 39.9], [116.41, 39.89]]}, "legs": []}]})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        result = await OsrmClient("http://router.local", http_client=http_client).route(Coordinate(lat=39.9, lon=116.4), Coordinate(lat=39.89, lon=116.41))
+    assert result.destination_snap_distance_m is None
+    assert result.road_destination is None
+
+
 def test_default_local_http_client_does_not_inherit_proxy_environment(monkeypatch):
     captured: dict[str, object] = {}
 

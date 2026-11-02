@@ -1,4 +1,5 @@
 import os
+import math
 from functools import lru_cache
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from app.config import get_settings
 from app.models import LocationFix, NavigationSession, NavigationSessionRequest
 from app.services.replay import load_track
-from app.services.navigation import NavigationSessionStore
+from app.services.navigation import NavigationSessionStore, DestinationSnapUnavailable, DestinationSnapTooFar
 from app.services.osrm import OsrmClient, RouteNotFound
 
 router = APIRouter(prefix="/api/navigation", tags=["navigation"])
@@ -33,7 +34,19 @@ async def create_navigation_session(
     store: NavigationSessionStore = Depends(get_navigation_store),
 ) -> NavigationSession:
     try:
-        return await store.create(request.origin, request.destination, request.track_id)
+        max_snap = None
+        if request.require_safe_destination:
+            try:
+                max_snap = float(os.environ["VOICE_MAX_DESTINATION_SNAP_M"])
+                if not math.isfinite(max_snap) or max_snap <= 0:
+                    raise ValueError("invalid threshold")
+            except (KeyError, ValueError):
+                raise HTTPException(status_code=503, detail={"code": "destination_snap_policy_unavailable"})
+        return await store.create(request.origin, request.destination, request.track_id, max_snap)
+    except DestinationSnapUnavailable as error:
+        raise HTTPException(status_code=503, detail={"code": "destination_snap_unavailable"}) from error
+    except DestinationSnapTooFar as error:
+        raise HTTPException(status_code=422, detail={"code": "destination_snap_too_far", "distance_m": error.distance_m, "road_destination": error.road_destination.model_dump()}) from error
     except RouteNotFound as error:
         raise HTTPException(status_code=404, detail={"code": "route_not_found"}) from error
     except (httpx.HTTPError, OSError) as error:

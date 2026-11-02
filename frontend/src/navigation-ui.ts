@@ -11,6 +11,7 @@ export function routeLabel(route: RouteResponse): string {
 }
 
 export function navigationLabel(state: NavigationState): string {
+  if (state.status === "replan_failed") return "重新规划失败，原路线可能已过期，请人工处理";
   if (state.status === "unmatched") return "定位未匹配到道路，车辆位置保持不变";
   if (state.status === "arrived") return "已到达目的地";
   if (state.status === "replay_finished") return "模拟轨迹已结束，尚未到达目的地";

@@ -19,6 +19,17 @@
         <button id="plan-route" type="button" disabled>规划路线</button>
         <button id="start-replay" type="button" disabled>开始模拟回放</button>
         <p id="route-summary" aria-live="polite"></p>
+        <section aria-label="语音导航">
+          <button id="voice-record" type="button">开始录音</button>
+          <label for="voice-text">目的地需求</label>
+          <input id="voice-text" type="text" maxlength="500" placeholder="例如：导航去停车场" />
+          <button id="voice-submit" type="button">解析需求</button>
+          <p id="voice-status" aria-live="polite"></p>
+          <p id="voice-intent"></p>
+          <div id="voice-candidates"></div>
+          <button id="voice-confirm" type="button" disabled>确认导航</button>
+          <button id="voice-cancel" type="button">取消</button>
+        </section>
       </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
