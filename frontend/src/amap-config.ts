@@ -48,7 +48,15 @@ export function loadAmapSdk(): Promise<any> {
 
     const script = document.createElement("script");
     script.type = "text/javascript";
-    const plugins = ["AMap.Geolocation", "AMap.Driving", "AMap.ToolBar", "AMap.Scale", "AMap.MoveAnimation"].join(",");
+    const plugins = [
+      "AMap.Geolocation",
+      "AMap.Driving",
+      "AMap.ToolBar",
+      "AMap.Scale",
+      "AMap.MoveAnimation",
+      "AMap.PlaceSearch",
+      "AMap.AutoComplete",
+    ].join(",");
     script.src = `https://webapi.amap.com/maps?v=2.0&key=${key}&plugin=${plugins}`;
     script.async = true;
 

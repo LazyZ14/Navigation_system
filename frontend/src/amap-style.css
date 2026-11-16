@@ -243,3 +243,152 @@ html, body, #app, #amap-container {
   font-size: 13px;
   box-sizing: border-box;
 }
+
+/* 隐藏高德默认的左下角 logo 和版权审图号（满足用户自定义要求） */
+.amap-logo,
+.amap-copyright {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* 语音与文字智能检索搜索栏 */
+.search-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #2563eb;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 16px;
+  color: #334155;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-icon:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-icon.recording {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #ef4444;
+  animation: pulse-recording 1.2s infinite;
+}
+
+@keyframes pulse-recording {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* 快捷搜索标签 */
+.quick-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tag-pill {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.tag-pill:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+/* POI 推荐卡片列表 */
+.poi-results-container {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.poi-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.poi-card:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+}
+
+.poi-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.poi-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.poi-card-distance {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #dbeafe;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.poi-card-address {
+  font-size: 11px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

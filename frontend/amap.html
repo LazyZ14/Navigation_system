@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>高德在线导航原型 - Amap Navigation Prototype</title>
+    <title>智能车载导航系统 - 在线增强版</title>
   </head>
   <body>
     <main id="app">
@@ -20,15 +20,15 @@
       <aside id="control-panel">
         <header class="panel-header">
           <h1 class="panel-title">
-            <span>高德在线导航</span>
-            <span class="badge-amap">Web JS API v2.0</span>
+            <span>智能车载导航系统</span>
+            <span class="badge-amap">在线增强版</span>
           </h1>
         </header>
 
         <!-- 地图与状态提示 -->
         <section class="section-box">
           <div class="section-title">运行状态</div>
-          <div id="amap-status" class="status-text">正在加载高德地图 SDK...</div>
+          <div id="amap-status" class="status-text">正在加载底图与导航服务...</div>
         </section>
 
         <!-- 自身定位模块 -->
@@ -40,6 +40,42 @@
           <div id="location-info" class="status-text coord-display">
             等待定位...
           </div>
+        </section>
+
+        <!-- 智能找地点 / POI 推荐模块 (语音/文字) -->
+        <section class="section-box">
+          <div class="section-title">智能找地点 / POI 推荐 (语音/文字)</div>
+          <div class="search-bar-wrap">
+            <input
+              id="input-poi-keyword"
+              class="search-input"
+              type="text"
+              placeholder="打字或语音输入：咖啡 / 充电桩..."
+            />
+            <button id="btn-voice-search" class="btn-icon" type="button" title="点击开始语音识别">
+              🎤
+            </button>
+            <button id="btn-text-search" class="btn-icon" type="button" title="搜索周边地点">
+              🔍
+            </button>
+          </div>
+
+          <!-- 快捷类别标签 -->
+          <div class="quick-tags">
+            <span class="tag-pill" data-keyword="咖啡馆">☕ 咖啡馆</span>
+            <span class="tag-pill" data-keyword="充电桩">⚡ 充电桩</span>
+            <span class="tag-pill" data-keyword="加油站">⛽ 加油站</span>
+            <span class="tag-pill" data-keyword="停车场">🅿️ 停车场</span>
+            <span class="tag-pill" data-keyword="美食快餐">🍜 美食</span>
+            <span class="tag-pill" data-keyword="便利店">🏪 便利店</span>
+          </div>
+
+          <div id="poi-search-tip" style="font-size: 11px; color: #64748b; margin-bottom: 4px;">
+            提示：优先以当前定位为圆心搜索 5 公里内地点，点击即可设为终点并自动导航。
+          </div>
+
+          <!-- POI 结果列表 -->
+          <div id="poi-results-container" class="poi-results-container" style="display: none;"></div>
         </section>
 
         <!-- 路线规划模块 -->
