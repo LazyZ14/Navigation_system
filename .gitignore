@@ -3,6 +3,7 @@ data/raw/*
 !data/raw/.gitkeep
 data/osrm/*
 data/tiles/*
+data/models/
 frontend/public/generated/*
 !frontend/public/generated/.gitkeep
 data/metadata/*
@@ -15,6 +16,7 @@ ios/GpsSender/GpsSender/Documents/GPS_Recordings/*.jsonl
 
 # Local tooling and generated output
 .venv/
+.venv312/
 __pycache__/
 .pytest_cache/
 node_modules/

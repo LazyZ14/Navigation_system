@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+import math
 
 import httpx
 
@@ -53,11 +54,26 @@ class OsrmClient:
             for leg in route.get("legs", [])
             for step in leg.get("steps", [])
         ]
+        road_destination = None
+        snap_distance = None
+        waypoints = payload.get("waypoints", [])
+        if isinstance(waypoints, list) and len(waypoints) >= 2 and isinstance(waypoints[-1], dict):
+            waypoint = waypoints[-1]
+            location = waypoint.get("location")
+            distance = waypoint.get("distance")
+            if (isinstance(location, list) and len(location) == 2
+                    and all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in location)
+                    and -180 <= location[0] <= 180 and -90 <= location[1] <= 90
+                    and isinstance(distance, (int, float)) and not isinstance(distance, bool) and math.isfinite(distance) and distance >= 0):
+                road_destination = Coordinate(lat=location[1], lon=location[0])
+                snap_distance = float(distance)
         return RouteResponse(
             geometry=geometry,
             distance_m=route["distance"],
             duration_s=route["duration"],
             maneuvers=maneuvers,
+            road_destination=road_destination,
+            destination_snap_distance_m=snap_distance,
         )
 
     async def nearest(self, location: Coordinate) -> MatchedRoad | None:

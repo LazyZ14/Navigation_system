@@ -16,6 +16,50 @@ build_tiles = importlib.util.module_from_spec(SPEC)
 LOADER.exec_module(build_tiles)
 
 
+def test_unnamed_parking_node_and_area_are_searchable(tmp_path):
+    source = tmp_path / "parking.osm"
+    source.write_text('''<osm>
+      <node id="1" lat="1" lon="1"><tag k="amenity" v="parking"/></node>
+      <node id="2" lat="2" lon="2"/><node id="3" lat="2" lon="3"/>
+      <node id="4" lat="3" lon="3"/><node id="5" lat="3" lon="2"/>
+      <way id="6"><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="5"/><nd ref="2"/><tag k="amenity" v="parking"/></way>
+    </osm>''')
+    labels, _ = build_tiles.build_label_feature_collections(source)
+    assert [p["properties"]["subclass"] for p in labels["poi"]["features"]] == ["parking", "parking"]
+
+
+def test_search_catalog_preserves_osm_identity_and_aliases(tmp_path):
+    source = tmp_path / "search.osm"
+    source.write_text('''<osm>
+      <node id="11" lat="22.3" lon="113.5"><tag k="amenity" v="hospital"/><tag k="name" v="医院"/><tag k="name:en" v="Hospital"/><tag k="alt_name" v="诊所"/></node>
+      <node id="12" lat="22.4" lon="113.6"><tag k="amenity" v="parking"/></node>
+    </osm>''')
+    result = build_tiles.build_search_catalog(source)
+    hospital, parking = result["features"]
+    assert hospital["properties"]["osm_id"] == "node/11"
+    assert hospital["properties"]["subclass"] == "hospital"
+    assert hospital["properties"]["names"]["name:en"] == "Hospital"
+    assert hospital["properties"]["names"]["alt_name"] == "诊所"
+    assert parking["properties"]["osm_id"] == "node/12"
+    assert parking["properties"]["name"] == ""
+    assert parking["properties"]["display_name"] == "未命名停车场"
+
+
+def test_search_catalog_handles_school_ways_and_hospital_relations(tmp_path):
+    source = tmp_path / "institutions.osm"
+    source.write_text('''<osm>
+      <node id="1" lat="1" lon="1"/><node id="2" lat="1" lon="2"/>
+      <node id="3" lat="2" lon="2"/><node id="4" lat="2" lon="1"/>
+      <way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/><tag k="amenity" v="school"/><tag k="name" v="学校"/><tag k="isced:level" v="1;2"/></way>
+      <way id="11"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/></way>
+      <relation id="20"><member type="way" ref="11" role="outer"/><tag k="type" v="multipolygon"/><tag k="amenity" v="hospital"/><tag k="name" v="医院"/></relation>
+    </osm>''')
+    records = build_tiles.build_search_catalog(source)["features"]
+    assert [(r["properties"]["osm_id"], r["properties"]["subclass"]) for r in records] == [("way/10", "school"), ("relation/20", "hospital")]
+    assert records[0]["properties"]["isced_level"] == "1;2"
+    assert all(r["geometry"]["type"] == "Point" for r in records)
+
+
 def write_osm(path: Path) -> None:
     path.write_text(
         """<osm>
@@ -209,10 +253,10 @@ def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_pa
         text=True,
     )
 
-    assert result.stdout == "wrote 8 offline map files\n"
+    assert result.stdout == "wrote 9 offline map files\n"
     expected_files = {
         "roads.geojson", "buildings.geojson", "water.geojson", "green.geojson", "landuse.geojson",
-        "road-labels.geojson", "place-labels.geojson", "poi.geojson",
+        "road-labels.geojson", "place-labels.geojson", "poi.geojson", "search-poi.geojson",
     }
     assert {path.name for path in generated.iterdir()} == expected_files
     for name in expected_files:
@@ -227,7 +271,7 @@ def test_cli_writes_all_thematic_files_and_records_deterministic_manifest(tmp_pa
     assert metadata["artifact"] == "maplibre-thematic-geojson"
     ordered_names = (
         "roads", "buildings", "water", "green", "landuse",
-        "road-labels", "place-labels", "poi",
+        "road-labels", "place-labels", "poi", "search-poi",
     )
     assert metadata["output"] == ",".join(
         f"frontend/public/generated/{name}.geojson" for name in ordered_names
