@@ -392,3 +392,33 @@ html, body, #app, #amap-container {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* AI 智能助理意图分析气泡 */
+.ai-agent-bubble {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0 8px;
+  font-size: 12px;
+  color: #166534;
+  line-height: 1.5;
+  display: none;
+  flex-direction: column;
+  gap: 3px;
+  animation: fadeIn 0.3s ease;
+}
+
+.ai-agent-tag {
+  font-weight: 700;
+  color: #15803d;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

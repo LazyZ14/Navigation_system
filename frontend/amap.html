@@ -71,7 +71,13 @@
           </div>
 
           <div id="poi-search-tip" style="font-size: 11px; color: #64748b; margin-bottom: 4px;">
-            提示：优先以当前定位为圆心搜索 5 公里内地点，点击即可设为终点并自动导航。
+            提示：支持口语模糊需求（如“我饿了”、“想买咖啡提神”、“车快没电了”），系统将智能识别意图。
+          </div>
+
+          <!-- AI 智能意图理解气泡 -->
+          <div id="ai-agent-bubble" class="ai-agent-bubble">
+            <div id="ai-agent-tag" class="ai-agent-tag">🤖 AI 意图理解</div>
+            <div id="ai-agent-text"></div>
           </div>
 
           <!-- POI 结果列表 -->
@@ -80,7 +86,7 @@
 
         <!-- 路线规划模块 -->
         <section class="section-box">
-          <div class="section-title">高德路线规划 (Driving)</div>
+          <div class="section-title">驾车路线规划 (Driving)</div>
           <div style="font-size: 12px; color: #64748b; margin-bottom: 6px;">
             提示：可以直接在地图上点击设置起点与终点。
           </div>

@@ -1,6 +1,7 @@
 import "./amap-style.css";
 import { getAmapCredentials, loadAmapSdk, saveAmapCredentials } from "./amap-config";
 import { gcj02ToWgs84, wgs84ToGcj02 } from "./coord-transform";
+import { analyzeUserIntent } from "./intent-parser";
 
 // UI 元素
 const statusEl = document.querySelector<HTMLDivElement>("#amap-status")!;
@@ -21,6 +22,9 @@ const btnVoiceSearch = document.querySelector<HTMLButtonElement>("#btn-voice-sea
 const btnTextSearch = document.querySelector<HTMLButtonElement>("#btn-text-search")!;
 const poiResultsContainer = document.querySelector<HTMLDivElement>("#poi-results-container")!;
 const tagPills = document.querySelectorAll<HTMLSpanElement>(".tag-pill");
+const aiAgentBubble = document.querySelector<HTMLDivElement>("#ai-agent-bubble")!;
+const aiAgentTag = document.querySelector<HTMLDivElement>("#ai-agent-tag")!;
+const aiAgentText = document.querySelector<HTMLDivElement>("#ai-agent-text")!;
 
 // Key 模态框元素
 const btnConfigKey = document.querySelector<HTMLButtonElement>("#btn-config-key")!;
@@ -117,14 +121,27 @@ function clearPoiMarkers(): void {
   poiMarkers = [];
 }
 
-// 核心函数：根据关键词和当前定位搜索周边 POI
-function searchNearbyPoi(keyword: string): void {
-  const cleanKeyword = keyword.trim();
-  if (!cleanKeyword) return;
+// 核心函数：根据自然语言/关键词和当前定位搜索周边 POI
+function searchNearbyPoi(rawInput: string): void {
+  const cleanInput = rawInput.trim();
+  if (!cleanInput) return;
 
   if (!placeSearchPlugin) {
     statusEl.innerHTML = `<span style="color:#ef4444;">搜索插件尚未就绪，请稍候</span>`;
     return;
+  }
+
+  // 1. 进行出行意图语义解析 (意图识别)
+  const intentResult = analyzeUserIntent(cleanInput);
+
+  // 2. 展现 AI 意图理解气泡
+  aiAgentBubble.style.display = "flex";
+  if (intentResult.isFuzzyMatched) {
+    aiAgentTag.innerHTML = `🤖 AI 意图理解：【${intentResult.categoryName}】`;
+    aiAgentText.innerHTML = `${intentResult.replyMessage}<br/><span style="font-size:11px;color:#15803d;opacity:0.85;">(已智能提取检索词：${intentResult.searchKeywords.join(" / ")})</span>`;
+  } else {
+    aiAgentTag.innerHTML = `📍 地点精确搜索`;
+    aiAgentText.innerHTML = `${intentResult.replyMessage}`;
   }
 
   // 优先以当前定位/起点为圆心；若未定位则以当前地图视野中心为圆心
@@ -138,11 +155,12 @@ function searchNearbyPoi(keyword: string): void {
 
   clearPoiMarkers();
   poiResultsContainer.style.display = "flex";
-  poiResultsContainer.innerHTML = `<div class="status-text">🔍 正在搜索周边 5km 内的“${cleanKeyword}”...</div>`;
+  const searchWord = intentResult.searchKeywords[0] || cleanInput;
+  poiResultsContainer.innerHTML = `<div class="status-text">🔍 正在搜寻周边 5km 内的“${searchWord}”...</div>`;
 
   // 搜索周边 5000 米范围内的 POI
   placeSearchPlugin.searchNearBy(
-    cleanKeyword,
+    searchWord,
     centerCoords,
     5000,
     (status: string, result: any) => {
@@ -204,7 +222,7 @@ function searchNearbyPoi(keyword: string): void {
       } else {
         poiResultsContainer.innerHTML = `
           <div class="status-text" style="color: #64748b;">
-            未在周边 5km 找到与“${cleanKeyword}”相关的地点，可尝试更换关键词或移动地图。
+            未在周边 5km 找到与“${searchWord}”匹配的地点，可尝试更换关键词或移动地图。
           </div>
         `;
       }
