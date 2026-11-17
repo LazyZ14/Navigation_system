@@ -15,6 +15,14 @@ data/metadata/*
 ios/GpsSender/GpsSender/Documents/GPS_Recordings/*.jsonl
 
 # Local tooling and generated output
+.env
+.env.local
+.env.*.local
+*.env
+frontend/.env
+frontend/.env.local
+backend/.env
+backend/.env.local
 .venv/
 .venv312/
 __pycache__/

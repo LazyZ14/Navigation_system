@@ -5,13 +5,16 @@
 const STORAGE_KEY_AMAP_KEY = "amap_user_key";
 const STORAGE_KEY_AMAP_SECURITY = "amap_security_key";
 
-// 用户在控制台创建的 Web端(JS API) 凭证
-export const DEFAULT_AMAP_KEY = "b55f0d144d7998ee89c145ef36f7379a";
-export const DEFAULT_AMAP_SECURITY_KEY = "b806aa15cb03f8cac7e0843f56321acb";
+// 默认从本地环境变量读取（本地配置在 .env.local，已被 git 忽略）
+export const DEFAULT_AMAP_KEY = (import.meta as any).env?.VITE_AMAP_KEY || "";
+export const DEFAULT_AMAP_SECURITY_KEY = (import.meta as any).env?.VITE_AMAP_SECURITY_KEY || "";
 
 export function getAmapCredentials(): { key: string; securityKey: string } {
-  const key = localStorage.getItem(STORAGE_KEY_AMAP_KEY) || DEFAULT_AMAP_KEY;
-  const securityKey = localStorage.getItem(STORAGE_KEY_AMAP_SECURITY) || DEFAULT_AMAP_SECURITY_KEY;
+  const envKey = (import.meta as any).env?.VITE_AMAP_KEY || "";
+  const envSecurity = (import.meta as any).env?.VITE_AMAP_SECURITY_KEY || "";
+
+  const key = (localStorage.getItem(STORAGE_KEY_AMAP_KEY) || envKey).trim();
+  const securityKey = (localStorage.getItem(STORAGE_KEY_AMAP_SECURITY) || envSecurity).trim();
   return { key, securityKey };
 }
 
@@ -40,6 +43,15 @@ export function loadAmapSdk(): Promise<any> {
     }
 
     const { key, securityKey } = getAmapCredentials();
+
+    if (!key || !securityKey) {
+      reject(
+        new Error(
+          "未检测到高德 Key 或安全密钥。请在右上角「Key 配置」中设置，或在 frontend/.env.local 中配置",
+        ),
+      );
+      return;
+    }
 
     // 高德 2.0 强制安全密钥必须在引入前设置
     window._AMapSecurityConfig = {
