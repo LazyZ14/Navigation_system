@@ -1,6 +1,6 @@
 # GPS Sender（iPhone 实时定位发送与离线录制端）
 
-基于 SwiftUI + `CoreLocation` 的轻量级 iPhone 定位工具（最低支持 `iOS 16.0`），为车载主机提供最高 **5Hz（0.2s 间隔）** 的 `WGS-84` 导航级定位流（`kCLLocationAccuracyBestForNavigation`），同时支持无网络离线 `.jsonl` 轨迹录制与导出。
+基于 SwiftUI + `CoreLocation` 的轻量级 iPhone 定位工具（最低支持 `iOS 16.0`），为车载主机提供最小发送间隔 **0.2s** 的 `WGS-84` 定位流（实际采样频率由 CoreLocation 决定）（`kCLLocationAccuracyBestForNavigation`），同时支持无网络离线 `.jsonl` 轨迹录制与导出。
 
 ## 1. 真机编译与安装
 
@@ -12,7 +12,7 @@ open ios/GpsSender/GpsSender.xcodeproj
 
 1. 在 `Signing & Capabilities` 中勾选 `Automatically manage signing` 并选择你的 Apple Developer / Personal Team；
 2. 顶部设备栏选择真实 iPhone，按 `Cmd + R` 编译安装；
-3. 首次在手机打开 App 时，允许**「使用 App 期间定位」**与**「本地网络」**权限（若使用免费个人签名首次安装，需在 iPhone「设置 → 通用 → VPN 与设备管理」中信任开发者证书）。
+3. 首次在手机打开 App 时，允许**「使用 App 期间定位」**、开启**「精确位置」**并允许**「本地网络」**权限（若使用免费个人签名首次安装，需在 iPhone「设置 → 通用 → VPN 与设备管理」中信任开发者证书）。
 
 命令行编译与测试构建校验：
 
