@@ -25,20 +25,66 @@
           </h1>
         </header>
 
+        <!-- 双模式切换栏：实车实时导航 vs 手动演示 Demo -->
+        <div class="mode-switch-bar" role="tablist" aria-label="导航工作模式">
+          <button id="btn-mode-live" class="mode-btn" type="button" data-mode="live">
+            📡 实车实时导航
+          </button>
+          <button id="btn-mode-demo" class="mode-btn active" type="button" data-mode="demo">
+            🧪 手动演示 Demo
+          </button>
+        </div>
+
         <!-- 地图与状态提示 -->
         <section class="section-box">
           <div class="section-title">运行状态</div>
           <div id="amap-status" class="status-text">正在加载底图与导航服务...</div>
         </section>
 
-        <!-- 自身定位模块 -->
+        <!-- 自身定位模块（按模式切换） -->
         <section class="section-box">
-          <div class="section-title">自身实时定位 (Geolocation)</div>
-          <button id="btn-locate" class="btn btn-secondary" type="button">
-            📍 获取当前浏览器实时定位
-          </button>
-          <div id="location-info" class="status-text coord-display">
-            等待定位...
+          <div class="section-title">自身实时定位 (Positioning)</div>
+
+          <!-- Demo 模式：浏览器单次定位 -->
+          <div id="demo-locate-box">
+            <button id="btn-locate" class="btn btn-secondary" type="button">
+              📍 获取当前浏览器实时定位
+            </button>
+            <div id="location-info" class="status-text coord-display">
+              等待定位...
+            </div>
+          </div>
+
+          <!-- Live 模式：iPhone USB / GNSS 实时遥测 -->
+          <div id="live-telemetry-box" style="display: none;">
+            <div id="live-signal-badge" class="live-badge offline">
+              ⏳ 等待手机/GNSS 实时定位信号...
+            </div>
+            <div class="telemetry-grid">
+              <div class="telemetry-item">
+                <span class="telemetry-label">车速</span>
+                <span id="live-metric-speed" class="telemetry-value">-- km/h</span>
+              </div>
+              <div class="telemetry-item">
+                <span class="telemetry-label">航向</span>
+                <span id="live-metric-heading" class="telemetry-value">--°</span>
+              </div>
+              <div class="telemetry-item">
+                <span class="telemetry-label">精度</span>
+                <span id="live-metric-accuracy" class="telemetry-value">±-- m</span>
+              </div>
+              <div class="telemetry-item">
+                <span class="telemetry-label">链路延迟</span>
+                <span id="live-metric-delay" class="telemetry-value">-- ms</span>
+              </div>
+            </div>
+            <div id="live-coords" class="status-text coord-display">
+              请开启手机 GpsSender（USB 172.20.10.x:8000）上报定位
+            </div>
+            <div id="live-turn-banner" class="live-turn-banner" style="display: none;">
+              <div id="live-turn-current" class="live-turn-current">-</div>
+              <div id="live-turn-next" class="live-turn-next"></div>
+            </div>
           </div>
         </section>
 
@@ -87,7 +133,7 @@
         <!-- 路线规划模块 -->
         <section class="section-box">
           <div class="section-title">驾车路线规划 (Driving)</div>
-          <div style="font-size: 12px; color: #64748b; margin-bottom: 6px;">
+          <div id="route-mode-tip" style="font-size: 12px; color: #64748b; margin-bottom: 6px;">
             提示：可以直接在地图上点击设置起点与终点。
           </div>
           <div id="points-status" class="status-text coord-display">

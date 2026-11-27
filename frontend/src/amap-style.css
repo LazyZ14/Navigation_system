@@ -422,3 +422,126 @@ html, body, #app, #amap-container {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* 双模式切换栏与实车遥测面板 */
+.mode-switch-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.mode-btn {
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 6px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.mode-btn:hover {
+  color: #0f172a;
+}
+
+.mode-btn.active[data-mode="live"] {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.28);
+}
+
+.mode-btn.active[data-mode="demo"] {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.live-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.live-badge.online {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.live-badge.offline {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.live-badge.recalculating {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.telemetry-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.telemetry-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.telemetry-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.live-turn-banner {
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 6px;
+}
+
+.live-turn-current {
+  font-size: 13px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.live-turn-next {
+  font-size: 11px;
+  color: #cbd5e1;
+  margin-top: 3px;
+}
+
+.steps-list li.active-step {
+  color: #1d4ed8;
+  font-weight: 700;
+  background: #eff6ff;
+  border-radius: 4px;
+  padding: 2px 4px;
+}

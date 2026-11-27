@@ -76,7 +76,7 @@ export function circularHeadingDiffDeg(a: number, b: number): number {
 }
 
 function normalizeVertex(v: RawVertex): GcjPoint | null {
-  if (Array.isArray(v) && v.length >= 2) {
+  if (Array.isArray(v)) {
     const [lon, lat] = v;
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
       return { lat, lon };
