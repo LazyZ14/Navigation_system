@@ -1,13 +1,14 @@
 import hmac
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, WebSocket, WebSocketDisconnect, status
 
 from app.config import Settings, get_settings
-from app.gps.models import GpsFixSubmission, GpsIngressReceipt
+from app.gps.models import GpsFixSubmission, GpsIngressReceipt, LatestGpsStatusResponse
 from app.gps.service import GpsIngressService, OutOfOrderGpsFixError, StaleGpsFixError
 
 
 router = APIRouter(prefix="/api/gps", tags=["gps"])
+gps_websocket_router = APIRouter(tags=["gps"])
 _ingress_service: GpsIngressService | None = None
 
 
@@ -26,7 +27,7 @@ def _require_device_token(fix: GpsFixSubmission, authorization: str | None, sett
 
 
 @router.post("/fixes", response_model=GpsIngressReceipt, status_code=status.HTTP_202_ACCEPTED)
-def receive_raw_gps_fix(
+async def receive_raw_gps_fix(
     fix: GpsFixSubmission,
     response: Response,
     authorization: str | None = Header(default=None),
@@ -44,3 +45,30 @@ def receive_raw_gps_fix(
         # A duplicate is intentionally successful and idempotent.
         response.status_code = status.HTTP_200_OK
     return receipt
+
+
+@router.get("/latest", response_model=LatestGpsStatusResponse)
+async def get_latest_gps_status(
+    service: GpsIngressService = Depends(get_gps_ingress_service),
+) -> LatestGpsStatusResponse:
+    return service.latest_status()
+
+
+@gps_websocket_router.websocket("/ws/gps/live")
+async def live_gps_updates(
+    websocket: WebSocket,
+    service: GpsIngressService = Depends(get_gps_ingress_service),
+) -> None:
+    await websocket.accept()
+    queue = service.subscribe()
+    try:
+        snapshot = service.latest_status()
+        if snapshot.active and snapshot.fix is not None:
+            await websocket.send_json(snapshot.fix.model_dump(mode="json"))
+        while True:
+            live_fix = await queue.get()
+            await websocket.send_json(live_fix.model_dump(mode="json"))
+    except WebSocketDisconnect:
+        return
+    finally:
+        service.unsubscribe(queue)

@@ -102,3 +102,66 @@ def test_gps_endpoint_accepts_latest_fresh_fix_after_disconnected_sender_drops_o
         assert recovered.json()["sequence"] == 2
     finally:
         app.dependency_overrides.clear()
+
+
+def test_get_latest_gps_returns_inactive_when_empty_and_active_after_post():
+    client = client_with_gps_dependencies()
+    try:
+        empty = client.get("/api/gps/latest")
+        assert empty.status_code == 200
+        assert empty.json() == {"active": False, "age_ms": None, "fix": None}
+
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        assert client.post("/api/gps/fixes", json=payload(sequence=5, lat=22.3734), headers=headers).status_code == 202
+
+        latest = client.get("/api/gps/latest")
+        assert latest.status_code == 200
+        body = latest.json()
+        assert body["active"] is True
+        assert isinstance(body["age_ms"], int)
+        assert body["fix"]["sequence"] == 5
+        assert body["fix"]["lat"] == 22.3734
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_websocket_live_gps_streams_initial_active_fix_and_subsequent_accepted_fixes():
+    client = client_with_gps_dependencies()
+    try:
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        assert client.post("/api/gps/fixes", json=payload(sequence=0, lat=22.3734), headers=headers).status_code == 202
+
+        with client.websocket_connect("/ws/gps/live") as ws:
+            initial = ws.receive_json()
+            assert initial["sequence"] == 0
+            assert initial["lat"] == 22.3734
+
+            assert client.post("/api/gps/fixes", json=payload(sequence=1, lat=22.3740), headers=headers).status_code == 202
+            second = ws.receive_json()
+            assert second["sequence"] == 1
+            assert second["lat"] == 22.3740
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_websocket_ignores_duplicate_and_rejected_fixes():
+    client = client_with_gps_dependencies()
+    try:
+        headers = {"Authorization": f"Bearer {TOKEN}"}
+        with client.websocket_connect("/ws/gps/live") as ws:
+            first = payload(sequence=1, lat=22.3734)
+            assert client.post("/api/gps/fixes", json=first, headers=headers).status_code == 202
+            assert ws.receive_json()["sequence"] == 1
+
+            # Duplicate (200), out-of-order (409), and unauthorized (401) must not emit WS frames
+            assert client.post("/api/gps/fixes", json=first, headers=headers).status_code == 200
+            assert client.post("/api/gps/fixes", json=payload(sequence=0), headers=headers).status_code == 409
+            assert client.post("/api/gps/fixes", json=payload(sequence=2), headers={"Authorization": "Bearer bad"}).status_code == 401
+
+            # Next valid fix arrives immediately as sequence=2 (proving nothing extra was queued)
+            assert client.post("/api/gps/fixes", json=payload(sequence=2, lat=22.3750), headers=headers).status_code == 202
+            next_msg = ws.receive_json()
+            assert next_msg["sequence"] == 2
+            assert next_msg["lat"] == 22.3750
+    finally:
+        app.dependency_overrides.clear()

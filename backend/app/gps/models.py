@@ -63,3 +63,68 @@ class GpsIngressReceipt(BaseModel):
     timestamp: datetime
     received_at: datetime
     network_delay_ms: int
+
+
+class LiveGpsFix(BaseModel):
+    """Latest accepted WGS-84 fix exposed to local frontend consumers."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "device_id": "iphone",
+                    "stream_id": "19989152-7c55-40c8-b98f-fdf7d5aa81d9",
+                    "sequence": 14,
+                    "lat": 22.3734,
+                    "lon": 113.5786,
+                    "accuracy_m": 6.5,
+                    "speed_mps": 8.3,
+                    "heading_deg": 85.0,
+                    "timestamp": "2026-11-27T05:07:16.000Z",
+                    "received_at": "2026-11-27T05:07:16.039Z",
+                }
+            ]
+        }
+    )
+
+    device_id: str
+    stream_id: UUID
+    sequence: int
+    lat: float
+    lon: float
+    accuracy_m: float
+    speed_mps: float | None = None
+    heading_deg: float | None = None
+    timestamp: datetime
+    received_at: datetime
+
+
+class LatestGpsStatusResponse(BaseModel):
+    """Snapshot of live positioning online state and most recent WGS-84 fix."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "active": True,
+                    "age_ms": 120,
+                    "fix": {
+                        "device_id": "iphone",
+                        "stream_id": "19989152-7c55-40c8-b98f-fdf7d5aa81d9",
+                        "sequence": 14,
+                        "lat": 22.3734,
+                        "lon": 113.5786,
+                        "accuracy_m": 6.5,
+                        "speed_mps": 8.3,
+                        "heading_deg": 85.0,
+                        "timestamp": "2026-11-27T05:07:16.000Z",
+                        "received_at": "2026-11-27T05:07:16.039Z",
+                    },
+                }
+            ]
+        }
+    )
+
+    active: bool
+    age_ms: int | None = None
+    fix: LiveGpsFix | None = None

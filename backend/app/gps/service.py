@@ -1,10 +1,17 @@
+import asyncio
 import hashlib
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from app.gps.models import GpsFixSubmission, GpsIngressReceipt, IngressDisposition
+from app.gps.models import (
+    GpsFixSubmission,
+    GpsIngressReceipt,
+    IngressDisposition,
+    LatestGpsStatusResponse,
+    LiveGpsFix,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -39,11 +46,17 @@ class GpsIngressService:
         max_active_streams: int = 100,
         max_fix_age: timedelta = timedelta(seconds=30),
         max_future_skew: timedelta = timedelta(seconds=5),
+        live_timeout: timedelta = timedelta(seconds=10),
+        subscriber_queue_size: int = 10,
     ) -> None:
         self._max_active_streams = max_active_streams
         self._max_fix_age = max_fix_age
         self._max_future_skew = max_future_skew
+        self._live_timeout = live_timeout
+        self._subscriber_queue_size = subscriber_queue_size
         self._streams: OrderedDict[tuple[str, str], _StreamState] = OrderedDict()
+        self._latest: tuple[GpsFixSubmission, datetime] | None = None
+        self._subscribers: set[asyncio.Queue[LiveGpsFix]] = set()
 
     def ingest(self, fix: GpsFixSubmission, received_at: datetime | None = None) -> GpsIngressReceipt:
         received_at = (received_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
@@ -71,9 +84,59 @@ class GpsIngressService:
             last_fix=fix,
             last_received_at=received_at,
         )
+        self._latest = (fix, received_at)
+        self._publish(self._to_live_fix(fix, received_at))
         receipt = self._receipt(fix, received_at, accepted=True, disposition=IngressDisposition.ACCEPTED)
         self._log("gps_fix_accepted", fix, receipt)
         return receipt
+
+    def latest_status(self, now: datetime | None = None) -> LatestGpsStatusResponse:
+        if self._latest is None:
+            return LatestGpsStatusResponse(active=False, age_ms=None, fix=None)
+        fix, received_at = self._latest
+        current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        age_delta = max(timedelta(0), current - received_at)
+        age_ms = round(age_delta.total_seconds() * 1000)
+        return LatestGpsStatusResponse(
+            active=age_delta <= self._live_timeout,
+            age_ms=age_ms,
+            fix=self._to_live_fix(fix, received_at),
+        )
+
+    def subscribe(self) -> asyncio.Queue[LiveGpsFix]:
+        queue: asyncio.Queue[LiveGpsFix] = asyncio.Queue(maxsize=self._subscriber_queue_size)
+        self._subscribers.add(queue)
+        return queue
+
+    def unsubscribe(self, queue: asyncio.Queue[LiveGpsFix]) -> None:
+        self._subscribers.discard(queue)
+
+    def _publish(self, live_fix: LiveGpsFix) -> None:
+        for queue in tuple(self._subscribers):
+            if queue.full():
+                try:
+                    queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+            try:
+                queue.put_nowait(live_fix)
+            except asyncio.QueueFull:
+                pass
+
+    @staticmethod
+    def _to_live_fix(fix: GpsFixSubmission, received_at: datetime) -> LiveGpsFix:
+        return LiveGpsFix(
+            device_id=fix.device_id,
+            stream_id=fix.stream_id,
+            sequence=fix.sequence,
+            lat=fix.lat,
+            lon=fix.lon,
+            accuracy_m=fix.accuracy_m,
+            speed_mps=fix.speed_mps,
+            heading_deg=fix.heading_deg,
+            timestamp=fix.timestamp,
+            received_at=received_at,
+        )
 
     def _validate_freshness(self, fix: GpsFixSubmission, received_at: datetime) -> None:
         if received_at - fix.timestamp > self._max_fix_age or fix.timestamp - received_at > self._max_future_skew:
