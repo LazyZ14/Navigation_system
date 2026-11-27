@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Settings:
-    osrm_base_url: str
     gps_device_tokens: dict[str, str]
     gps_max_active_streams: int
 
@@ -24,7 +23,6 @@ def _load_gps_device_tokens(raw_value: str | None) -> dict[str, str]:
 
 def get_settings() -> Settings:
     return Settings(
-        osrm_base_url=os.getenv("OSRM_BASE_URL", "http://127.0.0.1:5000"),
         gps_device_tokens=_load_gps_device_tokens(os.getenv("GPS_DEVICE_TOKENS_JSON")),
         gps_max_active_streams=int(os.getenv("GPS_MAX_ACTIVE_STREAMS", "100")),
     )

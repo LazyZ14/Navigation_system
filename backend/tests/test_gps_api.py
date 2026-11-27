@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 
 from app.api.gps import get_gps_ingress_service
-from app.api.navigation import get_navigation_store
 from app.config import Settings, get_settings
 from app.gps.service import GpsIngressService
 from app.main import app
@@ -32,7 +31,6 @@ def payload(*, sequence: int = 0, lat: float = 39.9042, speed_mps: float | None 
 def client_with_gps_dependencies() -> TestClient:
     service = GpsIngressService()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        osrm_base_url="http://osrm.invalid",
         gps_device_tokens={"ios-test-device": TOKEN},
         gps_max_active_streams=10,
     )
@@ -42,7 +40,6 @@ def client_with_gps_dependencies() -> TestClient:
 
 def test_gps_endpoint_accepts_authenticated_raw_fix_without_navigation_dependency():
     client = client_with_gps_dependencies()
-    app.dependency_overrides[get_navigation_store] = lambda: (_ for _ in ()).throw(AssertionError("GPS ingress must not use navigation"))
     try:
         response = client.post("/api/gps/fixes", json=payload(), headers={"Authorization": f"Bearer {TOKEN}"})
 

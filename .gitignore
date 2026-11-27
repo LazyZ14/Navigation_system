@@ -11,18 +11,29 @@ data/metadata/*
 *.osrm*
 *.mbtiles
 
-# GPS recording files (sensitive location data)
-ios/GpsSender/GpsSender/Documents/GPS_Recordings/*.jsonl
+# Private recordings, exports and credentials (at any depth)
+*.jsonl
+*.gpx
+*.kml
+GPS_Recordings/
+recordings/
+secrets/
+credentials/
+.aws/
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+*.sqlite
+*.sqlite3
+*.db
 
 # Local tooling and generated output
-.env
-.env.local
-.env.*.local
+.env*
+!.env.example
+!.env.*.example
 *.env
-frontend/.env
-frontend/.env.local
-backend/.env
-backend/.env.local
 .venv/
 .venv312/
 __pycache__/
@@ -31,8 +42,6 @@ node_modules/
 dist/
 .vite/
 *.log
-.env.gps.local
-gps-receiver*.log
 .DS_Store
 .superpowers/
 .worktrees/
