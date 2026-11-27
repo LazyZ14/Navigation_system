@@ -61,6 +61,8 @@ export class AmapLiveController {
   private weakSignal = false;
   private statusText = "手动演示模式：点击地图选取起终点或使用预设测试点";
   private lastFixWallMs: number | null = null;
+  private lastStreamId: string | null = null;
+  private lastSequence: number | null = null;
 
   private rawWgs84: { lat: number; lon: number } | null = null;
   private displayPositionGcj: GcjPoint | null = null;
@@ -74,6 +76,7 @@ export class AmapLiveController {
   private match: AmapRouteMatch | null = null;
   private offRouteCount = 0;
   private recalculating = false;
+  private recalcFailed = false;
   private lastRecalcTriggerMs = -Infinity;
   private arrived = false;
 
@@ -108,10 +111,13 @@ export class AmapLiveController {
     this.mode = mode;
     this.epoch += 1;
     this.recalculating = false;
+    this.recalcFailed = false;
     this.offRouteCount = 0;
     this.previousMatch = null;
     this.match = null;
     this.arrived = false;
+    this.lastStreamId = null;
+    this.lastSequence = null;
     this.jitterFilter.reset();
 
     if (mode === "demo") {
@@ -132,6 +138,7 @@ export class AmapLiveController {
     this.match = null;
     this.offRouteCount = 0;
     this.recalculating = false;
+    this.recalcFailed = false;
     this.arrived = false;
   }
 
@@ -139,13 +146,24 @@ export class AmapLiveController {
     this.setActiveRoute(null);
   }
 
-  ingestFix(fix: LiveGpsFixPayload, nowMs = Date.now()): void {
+  ingestFix(fix: LiveGpsFixPayload, nowMs = Date.now(), initialAgeMs = 0): void {
     if (this.mode !== "live") {
       return;
     }
 
-    this.lastFixWallMs = nowMs;
-    this.online = true;
+    if (
+      this.lastStreamId === fix.stream_id &&
+      this.lastSequence !== null &&
+      fix.sequence <= this.lastSequence
+    ) {
+      return;
+    }
+    this.lastStreamId = fix.stream_id;
+    this.lastSequence = fix.sequence;
+
+    const effectiveAgeMs = Math.max(0, initialAgeMs);
+    this.lastFixWallMs = nowMs - effectiveAgeMs;
+    this.online = effectiveAgeMs <= HEARTBEAT_TIMEOUT_MS;
 
     const sampleMs = Date.parse(fix.timestamp);
     const recvMs = Date.parse(fix.received_at);
@@ -157,7 +175,9 @@ export class AmapLiveController {
     if (!Number.isFinite(fix.accuracy_m) || fix.accuracy_m > MAX_ACCEPTABLE_ACCURACY_M) {
       this.weakSignal = true;
       this.accuracyM = fix.accuracy_m;
-      this.statusText = `⚠️ GPS 信号弱，精度 ±${Math.round(fix.accuracy_m)}m（已暂缓位置更新）`;
+      if (!this.recalculating) {
+        this.statusText = `⚠️ GPS 信号弱，精度 ±${Math.round(fix.accuracy_m)}m（已暂缓位置更新）`;
+      }
       this.emitSnapshot();
       return;
     }
@@ -174,7 +194,9 @@ export class AmapLiveController {
       this.displayPositionGcj = smoothed.position;
       this.displayHeadingDeg = smoothed.headingDeg;
       this.match = null;
-      this.statusText = "🟢 手机/GNSS 实时定位在线（请选择终点开始导航）";
+      this.statusText = this.online
+        ? "🟢 手机/GNSS 实时定位在线（请选择终点开始导航）"
+        : `⚠️ 实时定位信号已离线（上次更新 ${Math.round(effectiveAgeMs / 1000)}s 前）`;
       this.emitSnapshot();
       return;
     }
@@ -190,26 +212,28 @@ export class AmapLiveController {
     const routeMatch = matchPointToAmapRoute(gcj, this.activeRoute, this.previousMatch, fix.heading_deg);
     this.match = routeMatch;
 
-    if (routeMatch.arrived) {
-      this.previousMatch = routeMatch;
-      this.arrived = true;
-      this.offRouteCount = 0;
-      this.displayPositionGcj = routeMatch.projected;
-      this.displayHeadingDeg = routeMatch.segmentHeadingDeg;
-      this.statusText = "🎉 已到达终点附近";
-      this.emitSnapshot();
-      return;
-    }
-
     if (routeMatch.distanceToRouteM <= OFF_ROUTE_DISTANCE_M) {
       this.previousMatch = routeMatch;
       this.offRouteCount = 0;
+      this.recalcFailed = false;
+
+      if (routeMatch.arrived) {
+        this.arrived = true;
+        this.displayPositionGcj = routeMatch.projected;
+        this.displayHeadingDeg = routeMatch.segmentHeadingDeg;
+        this.statusText = "🎉 已到达终点附近";
+        this.emitSnapshot();
+        return;
+      }
+
       this.displayPositionGcj = routeMatch.projected;
       this.displayHeadingDeg =
         (fix.speed_mps ?? 0) >= 3.0 && fix.heading_deg !== null
           ? fix.heading_deg
           : routeMatch.segmentHeadingDeg;
-      this.statusText = routeMatch.currentInstruction || "🟢 正在沿规划路线导航";
+      if (!this.recalculating) {
+        this.statusText = routeMatch.currentInstruction || "🟢 正在沿规划路线导航";
+      }
       this.emitSnapshot();
       return;
     }
@@ -220,18 +244,26 @@ export class AmapLiveController {
     if (fix.accuracy_m <= MAX_RECALC_ACCURACY_M) {
       this.offRouteCount += 1;
     }
-    this.statusText = `⚠️ 已偏离路线 ${Math.round(routeMatch.distanceToRouteM)} 米`;
 
+    const inCooldown = nowMs - this.lastRecalcTriggerMs < RECALC_COOLDOWN_MS;
     const canRecalc =
       this.offRouteCount >= OFF_ROUTE_STRIKES &&
       !this.recalculating &&
-      nowMs - this.lastRecalcTriggerMs >= RECALC_COOLDOWN_MS;
+      !inCooldown;
 
     if (canRecalc) {
       void this.triggerRecalculation(gcj, nowMs);
-    } else {
-      this.emitSnapshot();
+      return;
     }
+
+    if (this.recalculating) {
+      this.statusText = "🔄 检测到偏航，正在重新规划路线...";
+    } else if (this.recalcFailed && inCooldown) {
+      this.statusText = `❌ 重算失败：当前位置无可达驾车路线（偏离 ${Math.round(routeMatch.distanceToRouteM)}m）`;
+    } else {
+      this.statusText = `⚠️ 已偏离路线 ${Math.round(routeMatch.distanceToRouteM)} 米`;
+    }
+    this.emitSnapshot();
   }
 
   tickHeartbeat(nowMs = Date.now()): void {
@@ -249,6 +281,7 @@ export class AmapLiveController {
   private async triggerRecalculation(originGcj: GcjPoint, nowMs: number): Promise<void> {
     const callEpoch = this.epoch;
     this.recalculating = true;
+    this.recalcFailed = false;
     this.lastRecalcTriggerMs = nowMs;
     this.statusText = "🔄 检测到偏航，正在重新规划路线...";
     this.emitSnapshot();
@@ -270,9 +303,11 @@ export class AmapLiveController {
       this.previousMatch = null;
       this.match = null;
       this.offRouteCount = 0;
+      this.recalcFailed = false;
       this.arrived = false;
       this.statusText = "✅ 已偏航重新规划路线";
     } else {
+      this.recalcFailed = true;
       this.statusText = "❌ 重算失败：当前位置无可达驾车路线";
     }
     this.emitSnapshot();

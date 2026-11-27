@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   computeModePanelVisibility,
+  DrivingSearchGuard,
   LiveGpsStreamClient,
   resolveMapClickAction,
 } from "../amap-main";
@@ -141,5 +142,31 @@ describe("amap dual-mode UI & transport helpers", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("discards stale in-flight Driving.search callback and clears map overlay after mode switch", () => {
+    const guard = new DrivingSearchGuard();
+    const clearOverlay = vi.fn();
+
+    // Start an off-route search in live mode
+    const token1 = guard.beginSearch();
+    expect(guard.isCurrent(token1)).toBe(true);
+
+    // Switch from live -> demo (invalidates active session without starting a new search)
+    guard.invalidateSession();
+    expect(guard.isCurrent(token1)).toBe(false);
+
+    // When late AMap Driving.search finishes, handleCompletion clears the stale auto-rendered polyline and returns false
+    const accepted = guard.acceptOrCleanupStale(token1, clearOverlay);
+    expect(accepted).toBe(false);
+    expect(clearOverlay).toHaveBeenCalledTimes(1);
+
+    // If a newer Demo search already started before token1 returned, stale token1 is rejected WITHOUT clearing the newer search!
+    const tokenOld = guard.beginSearch();
+    const tokenNew = guard.beginSearch();
+    clearOverlay.mockClear();
+    expect(guard.acceptOrCleanupStale(tokenOld, clearOverlay)).toBe(false);
+    expect(clearOverlay).not.toHaveBeenCalled();
+    expect(guard.acceptOrCleanupStale(tokenNew, clearOverlay)).toBe(true);
   });
 });

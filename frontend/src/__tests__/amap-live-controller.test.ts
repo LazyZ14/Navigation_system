@@ -248,4 +248,77 @@ describe("AmapLiveController", () => {
     expect(finalSnap.recalculating).toBe(false);
     expect(finalSnap.statusText).not.toContain("重新规划");
   });
+
+  it("deduplicates repeated/older sequence within same stream_id and honors initialAgeMs", () => {
+    const snapshots: LiveNavSnapshot[] = [];
+    const controller = new AmapLiveController({
+      onSnapshot: (s) => snapshots.push(s),
+      requestRecalculateRoute: async () => null,
+    });
+
+    controller.setMode("live");
+    // Initial snapshot from /api/gps/latest is already 8500ms old
+    const seq5 = makeFix({ sequence: 5, lat: 22.3734, lon: 113.5786, speed_mps: 6.0 });
+    controller.ingestFix(seq5, BASE_TIME_MS + 8500, 8500);
+    const snapCountAfterFirst = snapshots.length;
+
+    // Duplicate seq=5 from WS connect and out-of-order seq=4 must be ignored completely
+    controller.ingestFix(seq5, BASE_TIME_MS + 8600);
+    controller.ingestFix(makeFix({ sequence: 4, lat: 22.3740, lon: 113.5790 }), BASE_TIME_MS + 8700);
+    expect(snapshots.length).toBe(snapCountAfterFirst);
+
+    // Only 2 seconds later (total age 10.5s > 10s), heartbeat must mark stream offline!
+    controller.tickHeartbeat(BASE_TIME_MS + 10_500);
+    expect(snapshots[snapshots.length - 1].online).toBe(false);
+  });
+
+  it("preserves recalculating and failed-recalculation status across subsequent 5Hz fixes during cooldown", async () => {
+    let resolveReroute!: (r: IndexedAmapRoute | null) => void;
+    const recalc = vi.fn(
+      () =>
+        new Promise<IndexedAmapRoute | null>((resolve) => {
+          resolveReroute = resolve;
+        }),
+    );
+
+    const snapshots: LiveNavSnapshot[] = [];
+    const controller = new AmapLiveController({
+      onSnapshot: (s) => snapshots.push(s),
+      requestRecalculateRoute: recalc,
+    });
+
+    controller.setMode("live");
+    controller.setActiveRoute(buildZhuhaiNorthRouteFromWgs());
+
+    // Drive off-route PAST the destination latitude (22.3755 > 22.3750, ~140m east)
+    for (let i = 1; i <= 3; i++) {
+      controller.ingestFix(
+        makeFix({ sequence: i, lat: 22.3755, lon: 113.5800, accuracy_m: 8 }, i * 200),
+        BASE_TIME_MS + i * 200 + 20,
+      );
+    }
+    expect(snapshots[snapshots.length - 1].arrived).toBe(false);
+    expect(snapshots[snapshots.length - 1].recalculating).toBe(true);
+    expect(snapshots[snapshots.length - 1].statusText).toContain("正在重新规划");
+
+    // Next 5Hz fix while recalculating must NOT clobber "正在重新规划"
+    controller.ingestFix(
+      makeFix({ sequence: 4, lat: 22.3756, lon: 113.5800, accuracy_m: 8 }, 800),
+      BASE_TIME_MS + 820,
+    );
+    expect(snapshots[snapshots.length - 1].statusText).toContain("正在重新规划");
+
+    // Recalculation fails (unreachable)
+    resolveReroute(null);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(snapshots[snapshots.length - 1].statusText).toContain("无可达");
+
+    // Subsequent 5Hz off-route fix during 10s cooldown must NOT erase the "无可达" failure status
+    controller.ingestFix(
+      makeFix({ sequence: 5, lat: 22.3757, lon: 113.5800, accuracy_m: 8 }, 1000),
+      BASE_TIME_MS + 1020,
+    );
+    expect(snapshots[snapshots.length - 1].statusText).toContain("无可达");
+  });
 });

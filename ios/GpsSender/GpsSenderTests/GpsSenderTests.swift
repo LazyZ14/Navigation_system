@@ -387,4 +387,11 @@ final class GpsSenderTests: XCTestCase {
         // Only the fresh fix should remain
         XCTAssertEqual(queue.pendingSequences, [0])
     }
+
+    func testAuthorizationHelperAcceptsBothWhenInUseAndAlways() {
+        XCTAssertTrue(LocationSenderViewModel.isAuthorizedForSending(.authorizedWhenInUse))
+        XCTAssertTrue(LocationSenderViewModel.isAuthorizedForSending(.authorizedAlways))
+        XCTAssertFalse(LocationSenderViewModel.isAuthorizedForSending(.notDetermined))
+        XCTAssertFalse(LocationSenderViewModel.isAuthorizedForSending(.denied))
+    }
 }

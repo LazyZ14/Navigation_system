@@ -63,6 +63,10 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         KeychainStore.save(configuration.token, service: keychainService, account: "device-token")
     }
 
+    nonisolated static func isAuthorizedForSending(_ status: CLAuthorizationStatus) -> Bool {
+        status == .authorizedWhenInUse || status == .authorizedAlways
+    }
+
     func start() {
         saveConfiguration()
         guard !configuration.host.isEmpty, !configuration.token.isEmpty else { status = "请填写主机地址和设备令牌"; return }
@@ -76,7 +80,7 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
         isSending = true
         status = "正在请求前台定位权限"
         manager.requestWhenInUseAuthorization()
-        if manager.authorizationStatus == .authorizedWhenInUse { manager.startUpdatingLocation(); status = "正在发送" }
+        if Self.isAuthorizedForSending(manager.authorizationStatus) { manager.startUpdatingLocation(); status = "正在发送" }
     }
 
     func stop() {
@@ -94,7 +98,7 @@ final class LocationSenderViewModel: NSObject, ObservableObject, CLLocationManag
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         print("[GPS-DEBUG] Authorization changed: \(manager.authorizationStatus.rawValue)")
-        if isSending && manager.authorizationStatus == .authorizedWhenInUse {
+        if isSending && Self.isAuthorizedForSending(manager.authorizationStatus) {
             print("[GPS-DEBUG] Starting location updates")
             manager.startUpdatingLocation()
             status = "正在发送"

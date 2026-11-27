@@ -60,8 +60,8 @@ final class LocationRecorder: NSObject, ObservableObject, CLLocationManagerDeleg
             
             if let metadataData = try? JSONSerialization.data(withJSONObject: metadata),
                let metadataLine = String(data: metadataData, encoding: .utf8) {
-                // Write metadata as first line
-                try? metadataLine.write(to: fileURL, atomically: true, encoding: .utf8)
+                // Write metadata as first line with trailing newline
+                try? (metadataLine + "\n").write(to: fileURL, atomically: true, encoding: .utf8)
             }
             
             // Open file handle for appending
@@ -95,27 +95,22 @@ final class LocationRecorder: NSObject, ObservableObject, CLLocationManagerDeleg
         timer?.invalidate()
         timer = nil
         
-        // Update session end time
+        // Update session end time and append end metadata before closing fileHandle
         if var session = session {
             session.endTime = Date()
             self.session = session
-            
-            // Write end metadata
-            if let dir = recordingsDirectory {
-                let filename = "\(session.sessionID).jsonl"
-                let fileURL = dir.appendingPathComponent(filename)
-                
-                let endMetadata: [String: Any] = [
-                    "type": "recording_end",
-                    "session_id": session.sessionID,
-                    "end_time": ISO8601DateFormatter().string(from: session.endTime ?? Date()),
-                    "sample_count": sampleCount
-                ]
-                
-                if let metadataData = try? JSONSerialization.data(withJSONObject: endMetadata),
-                   let metadataLine = String(data: metadataData, encoding: .utf8) {
-                    try? "\n\(metadataLine)".write(to: fileURL, atomically: true, encoding: .utf8)
-                }
+
+            let endMetadata: [String: Any] = [
+                "type": "recording_end",
+                "session_id": session.sessionID,
+                "end_time": ISO8601DateFormatter().string(from: session.endTime ?? Date()),
+                "sample_count": sampleCount
+            ]
+
+            if let metadataData = try? JSONSerialization.data(withJSONObject: endMetadata),
+               let metadataLine = String(data: metadataData, encoding: .utf8),
+               let appendData = (metadataLine + "\n").data(using: .utf8) {
+                try? fileHandle?.write(contentsOf: appendData)
             }
         }
         
@@ -155,46 +150,51 @@ final class LocationRecorder: NSObject, ObservableObject, CLLocationManagerDeleg
         }
     }
     
+    func recordLocation(_ location: CLLocation, now: Date = Date()) {
+        guard isRecording else { return }
+
+        let locationAge = now.timeIntervalSince(location.timestamp)
+
+        // Filter out stale locations (>10s old)
+        guard locationAge <= 10 else {
+            errorCount += 1
+            return
+        }
+
+        // Create GPS fix payload
+        let payload: [String: Any?] = [
+            "type": "gps_fix",
+            "lat": location.coordinate.latitude,
+            "lon": location.coordinate.longitude,
+            "timestamp": ISO8601DateFormatter().string(from: location.timestamp),
+            "received_at": ISO8601DateFormatter().string(from: now),
+            "accuracy_m": location.horizontalAccuracy,
+            "speed_mps": location.speed >= 0 ? location.speed : nil,
+            "heading_deg": location.course >= 0 ? location.course : nil,
+            "altitude_m": location.altitude,
+            "location_age_s": locationAge
+        ]
+
+        // Write to file incrementally
+        if let data = try? JSONSerialization.data(withJSONObject: payload.compactMapValues { $0 }),
+           let line = String(data: data, encoding: .utf8),
+           let lineData = (line + "\n").data(using: .utf8) {
+            do {
+                try fileHandle?.write(contentsOf: lineData)
+                sampleCount += 1
+                lastLocationTime = now
+                statusMessage = "录制中 · \(sampleCount) 样本"
+            } catch {
+                errorCount += 1
+                statusMessage = "写入失败"
+            }
+        }
+    }
+
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         Task { @MainActor in
-            guard isRecording, let location = locations.last else { return }
-            
-            let now = Date()
-            let locationAge = now.timeIntervalSince(location.timestamp)
-            
-            // Filter out stale locations (>10s old)
-            guard locationAge <= 10 else {
-                errorCount += 1
-                return
-            }
-            
-            // Create GPS fix payload
-            let payload: [String: Any?] = [
-                "type": "gps_fix",
-                "lat": location.coordinate.latitude,
-                "lon": location.coordinate.longitude,
-                "timestamp": ISO8601DateFormatter().string(from: location.timestamp),
-                "received_at": ISO8601DateFormatter().string(from: now),
-                "accuracy_m": location.horizontalAccuracy,
-                "speed_mps": location.speed >= 0 ? location.speed : nil,
-                "heading_deg": location.course >= 0 ? location.course : nil,
-                "altitude_m": location.altitude,
-                "location_age_s": locationAge
-            ]
-            
-            // Write to file incrementally
-            if let data = try? JSONSerialization.data(withJSONObject: payload.compactMapValues { $0 }),
-               let line = String(data: data, encoding: .utf8) {
-                do {
-                    try fileHandle?.write(contentsOf: (line + "\n").data(using: .utf8)!)
-                    sampleCount += 1
-                    lastLocationTime = now
-                    statusMessage = "录制中 · \(sampleCount) 样本"
-                } catch {
-                    errorCount += 1
-                    statusMessage = "写入失败"
-                }
-            }
+            guard let location = locations.last else { return }
+            recordLocation(location)
         }
     }
     

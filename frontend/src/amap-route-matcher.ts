@@ -44,6 +44,7 @@ export interface RawAmapRoute {
 
 const EARTH_RADIUS_M = 6_371_000;
 const ARRIVAL_THRESHOLD_M = 25;
+const MAX_ARRIVAL_LATERAL_M = 50;
 const BACKWARD_TOLERANCE_M = 15;
 const FORWARD_SEARCH_RANGE_M = 1000;
 
@@ -298,7 +299,7 @@ export function matchPointToAmapRoute(
     currentStepIndex,
     currentInstruction,
     nextInstruction,
-    arrived: remainingDistanceM <= ARRIVAL_THRESHOLD_M,
+    arrived: remainingDistanceM <= ARRIVAL_THRESHOLD_M && best.distanceToRouteM <= MAX_ARRIVAL_LATERAL_M,
   };
 }
 

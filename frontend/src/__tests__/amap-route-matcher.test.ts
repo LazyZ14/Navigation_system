@@ -137,6 +137,26 @@ describe("amap-route-matcher", () => {
     expect(offRoad.distanceToRouteM).toBeGreaterThan(80);
   });
 
+  it("does not falsely mark arrived when vehicle is >50m off-route beyond the destination vertex", () => {
+    const indexed = buildIndexedAmapRoute({
+      steps: [
+        {
+          instruction: "沿情侣路向北直行",
+          path: [
+            [113.5786, 22.3700],
+            [113.5786, 22.3750],
+          ],
+        },
+      ],
+    });
+
+    // Past 22.3750 north (so segment projection clamps to t = 1, remainingDistanceM = 0),
+    // but ~150m east off-route! Must NOT be marked arrived.
+    const pastEndOffRoute = matchPointToAmapRoute({ lat: 22.3755, lon: 113.5802 }, indexed, null, 0);
+    expect(pastEndOffRoute.distanceToRouteM).toBeGreaterThan(100);
+    expect(pastEndOffRoute.arrived).toBe(false);
+  });
+
   it("freezes position and heading inside 3m stationary deadzone and smooths when moving", () => {
     const filter = new UnroutedJitterFilter();
 

@@ -38,13 +38,12 @@ gps-receiver*.log
 .worktrees/
 
 # Xcode and iOS build artifacts
-ios/**/*.xcuserstate
-ios/**/*.xcuserdata/
-ios/**/*.swiftpm/
+**/*.xcuserstate
+**/xcuserdata/
+**/*.xcuserdatad/
+**/*.swiftpm/
 ios/DerivedData/
 ios/build/
-*.xcodeproj/xcuserdata/
-*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 
 # Office document build artifacts (if any)
 .docx-build/

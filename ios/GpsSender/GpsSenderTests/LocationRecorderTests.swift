@@ -77,4 +77,34 @@ final class LocationRecorderTests: XCTestCase {
             XCTAssertFalse(recorder.getRecordingFiles().contains(firstFile))
         }
     }
+
+    func testStopRecordingAppendsEndMetadataWithoutOverwritingRecordedSamples() throws {
+        let before = Set(recorder.getRecordingFiles())
+        recorder.startRecording()
+        let sample = CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 22.3734, longitude: 113.5786),
+            altitude: 12.0,
+            horizontalAccuracy: 6.0,
+            verticalAccuracy: 8.0,
+            course: 85.0,
+            speed: 5.5,
+            timestamp: Date()
+        )
+        recorder.recordLocation(sample)
+        recorder.stopRecording()
+
+        let created = Set(recorder.getRecordingFiles()).subtracting(before)
+        guard let fileURL = created.first else {
+            XCTFail("Expected a new JSONL recording file")
+            return
+        }
+        defer { recorder.deleteRecording(at: fileURL) }
+
+        let content = try String(contentsOf: fileURL, encoding: .utf8)
+        let lines = content.split(separator: "\n").map(String.init)
+        XCTAssertEqual(lines.count, 3)
+        XCTAssertTrue(lines[0].contains("\"recording_session\""))
+        XCTAssertTrue(lines[1].contains("\"gps_fix\""))
+        XCTAssertTrue(lines[2].contains("\"recording_end\""))
+    }
 }

@@ -60,10 +60,40 @@ export function computeModePanelVisibility(mode: AmapAppMode): ModePanelVisibili
 export interface LiveGpsStreamClientOptions {
   wsUrl: string;
   latestUrl: string;
-  onFix: (fix: LiveGpsFixPayload) => void;
+  onFix: (fix: LiveGpsFixPayload, initialAgeMs?: number) => void;
   onHeartbeat: () => void;
   fetchImpl?: typeof fetch;
   createWebSocket?: (url: string) => WebSocket;
+}
+
+export class DrivingSearchGuard {
+  private activeToken = 0;
+  private sessionValid = false;
+
+  beginSearch(): number {
+    this.activeToken += 1;
+    this.sessionValid = true;
+    return this.activeToken;
+  }
+
+  invalidateSession(): void {
+    this.activeToken += 1;
+    this.sessionValid = false;
+  }
+
+  isCurrent(token: number): boolean {
+    return this.sessionValid && token === this.activeToken;
+  }
+
+  acceptOrCleanupStale(token: number, clearMapOverlay: () => void): boolean {
+    if (this.isCurrent(token)) {
+      return true;
+    }
+    if (!this.sessionValid) {
+      clearMapOverlay();
+    }
+    return false;
+  }
 }
 
 const RECONNECT_DELAYS_MS = [1000, 2000, 5000];
@@ -117,9 +147,13 @@ export class LiveGpsStreamClient {
     try {
       const resp = await fetchFn(this.opts.latestUrl);
       if (!resp.ok || !this.running) return;
-      const body = (await resp.json()) as { active?: boolean; fix?: LiveGpsFixPayload | null };
+      const body = (await resp.json()) as {
+        active?: boolean;
+        age_ms?: number | null;
+        fix?: LiveGpsFixPayload | null;
+      };
       if (this.running && body.active && body.fix) {
-        this.opts.onFix(body.fix);
+        this.opts.onFix(body.fix, body.age_ms ?? 0);
       }
     } catch {
       // Initial snapshot is best-effort; WebSocket stream handles recovery
@@ -235,6 +269,8 @@ function bootstrapAmapPage(): void {
   let currentRoutePath: [number, number][] = [];
   let isLiveRouteActive = false;
   let hasCenteredLiveVehicle = false;
+  let hasStickyStatusAlert = false;
+  const searchGuard = new DrivingSearchGuard();
 
   let speechRecognitionInstance: any = null;
   let isRecording = false;
@@ -254,7 +290,7 @@ function bootstrapAmapPage(): void {
   const liveStreamClient = new LiveGpsStreamClient({
     wsUrl: liveWsUrl,
     latestUrl: "/api/gps/latest",
-    onFix: (fix) => liveController.ingestFix(fix),
+    onFix: (fix, initialAgeMs) => liveController.ingestFix(fix, Date.now(), initialAgeMs ?? 0),
     onHeartbeat: () => liveController.tickHeartbeat(),
   });
 
@@ -354,6 +390,8 @@ function bootstrapAmapPage(): void {
     currentRoutePath = [];
     isLiveRouteActive = false;
     hasCenteredLiveVehicle = false;
+    hasStickyStatusAlert = false;
+    searchGuard.invalidateSession();
     routeResultBox.style.display = "none";
     liveTurnBanner.style.display = "none";
     liveController.clearRoute();
@@ -404,7 +442,9 @@ function bootstrapAmapPage(): void {
       liveSignalBadge.className = "live-badge offline";
     }
     liveSignalBadge.textContent = snap.statusText;
-    statusEl.textContent = snap.statusText;
+    if (!isRecording && (!hasStickyStatusAlert || snap.recalculating)) {
+      statusEl.textContent = snap.statusText;
+    }
 
     // 2. 遥测四格指标
     liveMetricSpeed.textContent = snap.speedKmh !== null ? `${snap.speedKmh.toFixed(1)} km/h` : "-- km/h";
@@ -526,8 +566,16 @@ function bootstrapAmapPage(): void {
       return Promise.resolve(null);
     }
 
+    const searchToken = searchGuard.beginSearch();
     if (!isAutoRecalc) {
+      hasStickyStatusAlert = false;
       statusEl.textContent = "正在规划最优驾车路线...";
+      if (liveController.getMode() === "live") {
+        isLiveRouteActive = false;
+        routeResultBox.style.display = "none";
+        liveTurnBanner.style.display = "none";
+        liveController.clearRoute();
+      }
     }
     drivingPlugin.clear();
 
@@ -536,7 +584,13 @@ function bootstrapAmapPage(): void {
         new window.AMap.LngLat(origin[0], origin[1]),
         new window.AMap.LngLat(dest[0], dest[1]),
         (status: string, result: any) => {
+          if (!searchGuard.acceptOrCleanupStale(searchToken, () => drivingPlugin?.clear())) {
+            resolve(null);
+            return;
+          }
+
           if (status === "complete" && result.routes && result.routes.length > 0) {
+            hasStickyStatusAlert = false;
             const route = result.routes[0];
             const distKm = (route.distance / 1000).toFixed(1);
             const timeMin = Math.round(route.time / 60);
@@ -573,6 +627,9 @@ function bootstrapAmapPage(): void {
             }
             resolve(indexed);
           } else {
+            if (!isAutoRecalc) {
+              hasStickyStatusAlert = true;
+            }
             statusEl.innerHTML = `<span style="color:#ef4444;">算路失败: ${result?.info || "当前位置无可达驾车路线"}</span>`;
             resolve(null);
           }
