@@ -35,6 +35,7 @@ dist/
 gps-receiver*.log
 .DS_Store
 .superpowers/
+.worktrees/
 
 # Xcode and iOS build artifacts
 ios/**/*.xcuserstate
