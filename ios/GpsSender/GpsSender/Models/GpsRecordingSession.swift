@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 struct GpsRecordingSession: Codable {
     let sessionID: String
@@ -7,6 +8,7 @@ struct GpsRecordingSession: Codable {
     let deviceModel: String
     let osVersion: String
     
+    @MainActor
     init() {
         self.sessionID = UUID().uuidString
         self.startTime = Date()

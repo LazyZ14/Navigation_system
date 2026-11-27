@@ -128,7 +128,7 @@ struct ContentView: View {
                         }
                         Button(role: .destructive) {
                             recorder.deleteRecording(at: fileURL)
-                        } {
+                        } label: {
                             Image(systemName: "trash")
                         }
                     }
@@ -144,6 +144,6 @@ struct ContentView: View {
     }
     
     private func formattedFileSize(_ url: URL) -> Int64 {
-        (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
     }
 }

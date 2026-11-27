@@ -128,9 +128,13 @@ final class LocationRecorder: NSObject, ObservableObject, CLLocationManagerDeleg
     
     func getRecordingFiles() -> [URL] {
         guard let dir = recordingsDirectory else { return [] }
-        return (try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil))?
+        return (try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey]))?
             .filter { $0.pathExtension == "jsonl" }
-            .sorted(by: { $0.creationDate ?? Date.distantPast > $1.creationDate ?? Date.distantPast }) ?? []
+            .sorted(by: {
+                let date0 = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                let date1 = (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                return date0 > date1
+            }) ?? []
     }
     
     func deleteRecording(at url: URL) {

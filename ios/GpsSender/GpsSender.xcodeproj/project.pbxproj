@@ -15,6 +15,9 @@
 		A1000006 /* LocationSenderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000006 /* LocationSenderViewModel.swift */; };
 		A1000007 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000007 /* KeychainStore.swift */; };
 		A1000008 /* GpsSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000008 /* GpsSenderTests.swift */; };
+		A1000009 /* GpsRecordingSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* GpsRecordingSession.swift */; };
+		A1000010 /* LocationRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* LocationRecorder.swift */; };
+		A1000011 /* LocationRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014 /* LocationRecorderTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,6 +42,9 @@
 		A2000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000010 /* GpsSender.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GpsSender.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000011 /* GpsSenderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GpsSenderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2000012 /* GpsRecordingSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GpsRecordingSession.swift; sourceTree = "<group>"; };
+		A2000013 /* LocationRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationRecorder.swift; sourceTree = "<group>"; };
+		A2000014 /* LocationRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationRecorderTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +90,7 @@
 			isa = PBXGroup;
 			children = (
 				A2000008 /* GpsSenderTests.swift */,
+				A2000014 /* LocationRecorderTests.swift */,
 			);
 			path = GpsSenderTests;
 			sourceTree = "<group>";
@@ -101,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				A2000002 /* GpsFixPayload.swift */,
+				A2000012 /* GpsRecordingSession.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -120,6 +128,7 @@
 				A2000005 /* RealtimeSendQueue.swift */,
 				A2000006 /* LocationSenderViewModel.swift */,
 				A2000007 /* KeychainStore.swift */,
+				A2000013 /* LocationRecorder.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -208,6 +217,8 @@
 				A1000005 /* RealtimeSendQueue.swift in Sources */,
 				A1000006 /* LocationSenderViewModel.swift in Sources */,
 				A1000007 /* KeychainStore.swift in Sources */,
+				A1000009 /* GpsRecordingSession.swift in Sources */,
+				A1000010 /* LocationRecorder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -216,6 +227,7 @@
 			buildActionMask = 511883718121;
 			files = (
 				A1000008 /* GpsSenderTests.swift in Sources */,
+				A1000011 /* LocationRecorderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -260,6 +272,7 @@
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -298,6 +311,7 @@
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;

@@ -1,6 +1,7 @@
 import XCTest
 @testable import GpsSender
 
+@MainActor
 final class LocationRecorderTests: XCTestCase {
     var recorder: LocationRecorder!
     

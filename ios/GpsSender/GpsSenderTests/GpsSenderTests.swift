@@ -270,7 +270,6 @@ final class GpsSenderTests: XCTestCase {
         // #0, #1, #2 should be discarded; #5 should remain
         XCTAssertEqual(queue.pendingSequences, [5])
     }
-}
     
     // MARK: - Send Interval and Performance Tests
     
