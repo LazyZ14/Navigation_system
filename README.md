@@ -1,200 +1,136 @@
-# Navigation System
+# Navigation System（智能车载导航系统）
 
-## Voice-01 本地演示
+面向车载实验与实车联调的双栈导航系统：同时提供 **纯离线可复现导航闭环（MapLibre + OSRM + 本地语音/意图解析）** 与 **高德在线增强导航闭环（支持「📡 实车实时导航」与「🧪 手动演示 Demo」双模式）**，配套 **iPhone 5Hz 有线/局域网 GPS 采集端（`GpsSender`）** 及标准 `WGS-84` 实时定位总线（可直接平滑切换至外置 USB/串口 GNSS 模块）。
 
-语音导航使用浏览器录音、腾讯云一句话识别和本机 Ollama `qwen2.5:7b`。录音通过 FastAPI 发送腾讯云，可能产生费用；文本输入可独立测试 LLM。模型只提取地点需求，候选坐标来自本地 OSM。选择候选并确认后才调用导航会话；停车场和地点数据覆盖范围受 OSM 约束。识别文本可编辑，尤其需要核对地名。浏览器录音要求 localhost 或 HTTPS 并授予麦克风权限。
+---
 
-以下步骤使用独立端口，避免影响其他 worktree。需要 Python 3.12、Node.js、Docker、ffmpeg、腾讯云 ASR 服务及凭证、已安装的 Ollama `qwen2.5:7b` 和珠海 OSM 文件。腾讯云语音识别需要网络，其他导航服务仍在本机运行。地图产物与密钥均不提交 Git。Ubuntu 尚需实际验证。
+## 核心功能矩阵
+
+| 模块 | 入口 / 位置 | 核心能力 |
+| --- | --- | --- |
+| **高德在线增强导航（双模式）** | `frontend/amap.html` | • **📡 实车实时导航**：接入手机 USB/LAN 或 GNSS 实时定位（边界 `WGS-84 → GCJ-02` 转换）、静止防抖、规划折线连续性+航向角吸附、剩余里程/转向指引实时刷新、连续偏航自动节流重算<br>• **🧪 手动演示 Demo**：地图点选起终点、珠海预设路线（金鼎 → 日月贝）、浏览器定位与小车模拟沿路巡航<br>• **🎤 智能 POI 搜寻**：支持语音/文字口语模糊意图理解（如“我饿了”、“车快没电了”）检索周边 5km 地点 |
+| **离线导航 MVP + Voice-01** | `frontend/index.html` | 珠海实验区八类语义 GeoJSON 离线底图、OSRM 机动车算路、轨迹回放、偏航重规划，以及基于腾讯云一句话 ASR + 本地 Ollama `qwen2.5:7b` 的本地 OSM POI 语音导航 |
+| **FastAPI 协调与定位总线** | `backend/app/` | OSRM 路由适配、离线导航会话管理、`POST /api/gps/fixes`（Token 鉴权 + 防乱序/时效校验）、`GET /api/gps/latest` 在线快照与 `WS /ws/gps/live` 实时非阻塞广播 |
+| **iPhone 定位端（GpsSender）** | `ios/GpsSender/` | SwiftUI + CoreLocation 导航级精度最高 5Hz 实时上报（支持 USB 有线热点低延迟传输）与无网离线 `.jsonl` 轨迹录制导出 |
+
+---
+
+## 快速开始一：高德实车实时导航 + iPhone USB 有线联调（推荐）
+
+在硬件 GNSS 模块到货前，可通过一根数据线将 iPhone 作为高精度 `WGS-84` 定位源接入 Mac 主机：
+
+### 1. 配置高德前端密钥（本地忽略，不入 Git）
 
 ```bash
-python3.12 -m venv backend/.venv
-backend/.venv/bin/pip install -e './backend[voice,dev]'
-cd frontend && npm ci && cd ..
-# 将已有珠海 OSM 文件放在 data/raw/zhuhai.osm 后：
+cp frontend/.env.example frontend/.env.local
+# 在 frontend/.env.local 中填入你的 VITE_AMAP_KEY 与 VITE_AMAP_SECURITY_CODE
+```
+
+### 2. 建立 iPhone USB 有线连接
+
+1. 用数据线连接 iPhone 与 Mac，开启 iPhone **「设置 → 个人热点 → 允许其他人加入」**；
+2. 打开 Mac **「系统设置 → 网络 → iPhone USB」**，关闭 **「除非需要，否则停用」**，查看分配给 Mac 的有线 IP（通常为 `172.20.10.x`，也可通过 `ifconfig` 查看）；
+3. 用 Xcode 打开 `ios/GpsSender/GpsSender.xcodeproj` 编译安装到真机（详见 [ios/README.md](ios/README.md)）。
+
+### 3. 启动后端 GPS 接收总线与前端开发服务
+
+终端 1（配置临时设备令牌并启动 FastAPI，切勿将令牌提交 Git）：
+
+```bash
+export GPS_DEVICE_TOKENS_JSON='{"iphone":"replace-with-random-token"}'
+PYTHONPATH=backend backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+终端 2（启动前端多页面服务，自动代理 `/api` 与 `/ws`）：
+
+```bash
+npm --prefix frontend run dev -- --host 127.0.0.1 --port 5173
+```
+
+### 4. 开始实车导航或演示
+
+- **实车实时模式**：打开 <http://127.0.0.1:5173/amap.html?mode=live>，在手机 `GpsSender` 填入 Mac 的 USB 有线 IP（如 `172.20.10.10`）、端口 `8000`、设备 ID `iphone` 与对应令牌后点 **「开始发送」**。页面显示 `🟢 手机/GNSS 实时定位在线` 后，点击地图任意位置或通过语音/文字搜索周边 POI 即可开始实时跟车导航与偏航自动重算。
+- **手动演示模式**：打开 <http://127.0.0.1:5173/amap.html>（默认进入「🧪 手动演示 Demo」），无需连接手机即可点击「🎯 填充珠海测试点」、算路并播放「▶ 模拟小车沿路巡航」。
+
+---
+
+## 快速开始二：离线导航 MVP（Docker 一键启动）
+
+前提：已准备 `data/raw/zhuhai.osm` 并通过脚本生成离线数据：
+
+```bash
 bash scripts/build_osrm.sh data/raw/zhuhai.osm zhuhai
 python3 scripts/build_tiles.sh data/raw/zhuhai.osm
-docker run --rm --name voice01-osrm -p 127.0.0.1:15000:5000 -v "$PWD/data/osrm:/data:ro" ghcr.io/project-osrm/osrm-backend:v5.27.1 osrm-routed --algorithm mld /data/zhuhai.osrm
+bash scripts/demo.sh
 ```
 
-另开终端，先运行 `bash`，再在仓库根目录安全地输入腾讯云 `TENCENT_SECRET_ID`、`TENCENT_SECRET_KEY` 并启动 API（Ollama 需已运行）。不要将密钥放入源码、聊天或提交；区域可通过 `TENCENT_REGION` 设置，默认 `ap-guangzhou`：
+打开 <http://127.0.0.1:5173/> 即可在无外网环境下规划珠海区域路线并进行正常/偏航轨迹模拟回放。停止容器执行 `docker compose down`。
+
+---
+
+## 快速开始三：Voice-01 本地语音导航演示
+
+语音导航在离线地图基础上结合腾讯云一句话识别（需网络与凭证）和本机 Ollama `qwen2.5:7b`（只提取地点需求，候选坐标均来自本地 OSM `search-poi.geojson`）：
 
 ```bash
+# 1. 启动独立端口 OSRM
+docker run --rm --name voice01-osrm -p 127.0.0.1:15000:5000 -v "$PWD/data/osrm:/data:ro" ghcr.io/project-osrm/osrm-backend:v5.27.1 osrm-routed --algorithm mld /data/zhuhai.osrm
+
+# 2. 另开终端注入凭证并启动 API（确保本机 Ollama 已运行）
 read -r -p 'Tencent SecretId: ' TENCENT_SECRET_ID
 read -r -s -p 'Tencent SecretKey: ' TENCENT_SECRET_KEY; printf '\n'
-export TENCENT_SECRET_ID TENCENT_SECRET_KEY
-# 根据实验区域和驾驶安全评估输入允许的终点吸附偏差（米）；未配置时语音候选导航会拒绝创建会话。
 read -r -p 'Maximum destination snap distance in metres: ' VOICE_MAX_DESTINATION_SNAP_M
-export VOICE_MAX_DESTINATION_SNAP_M
+export TENCENT_SECRET_ID TENCENT_SECRET_KEY VOICE_MAX_DESTINATION_SNAP_M
 OSRM_BASE_URL=http://127.0.0.1:15000 PYTHONPATH=backend backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 18000
+
+# 3. 另开终端启动前端
+VOICE_API_URL=http://127.0.0.1:18000 npm --prefix frontend run dev -- --host 127.0.0.1 --port 15173
 ```
 
-再开终端启动界面：
+打开 `http://localhost:15173/` 即可录音或输入文本检索候选并确认导航。
+
+---
+
+## iPhone 离线 GPS 轨迹录制与分析
+
+无需局域网或热点时，可在 `GpsSender` App 顶部切至 **「离线录制」**，采集完成后通过系统分享导出 `.jsonl` 文件并在 Mac 上统计采样率、精度与定位年龄：
 
 ```bash
-cd frontend
-VOICE_API_URL=http://127.0.0.1:18000 npm run dev -- --host 127.0.0.1 --port 15173
+python3 scripts/analyze_gps_recording.py /path/to/exported/session.jsonl
 ```
 
-打开 `http://localhost:15173/`。选择或保留演示起点，点击“开始录音”，说出需求后点击“停止录音”；也可以直接输入文本并点击“解析需求”。录音不超过 60 秒；选择地图上的候选对应按钮，点击“确认导航”。确认前取消会清除候选；确认后取消只忽略迟到的界面响应，服务器可能已创建会话。服务不可用和没有候选时界面会提示。结束时分别在三个终端按 Ctrl-C。默认 Ollama 地址是 `http://127.0.0.1:11434`，可通过 `OLLAMA_URL`、`OLLAMA_MODEL` 配置。
+详细步骤参见 [离线录制测试手册](docs/gps-offline-recording-test.md) 与 [GPS-01 联调手册](docs/gps-01-manual-validation.md)。
 
-按名称或类别检索使用由构建脚本生成的 `search-poi.geojson`；升级后需要重新运行地图构建。结果按名称稳定排序；“最近”使用页面选定的起点和直线距离，并不代表驾驶距离或偏好排序。“附近”还必须由运营者设置 `VOICE_NEARBY_RADIUS_M`（正数，米）；“沿途”及不能验证的营业、价格、停车条件等请求需要澄清。语音导航会显示 OSM 目的地与 OSRM 道路终点，阈值仅由具体测试场景配置，不是通用安全距离。
+---
 
-小学和中学查询仅使用 OSM 的 `isced:level` 教育层级标签，不根据地点名称推断层级；缺少可验证标签时会要求调整需求。当前珠海数据的此类标签覆盖有限。语音导航偏航后也会验证道路终点；验证失败时保留原路线数据但停止显示旧路线引导，并提示人工处理。
+## 项目目录结构
 
-语音接口默认只接受 `localhost`/`127.0.0.1` 的演示页面 Origin，且每个进程最多并发两个音频请求；允许列表可用 `VOICE_ALLOWED_ORIGINS` 配置。Origin 校验不是身份认证：不要将带云凭证的 API 直接暴露到局域网或公网，局域网使用需另行设置 TLS、身份认证和网络限制。默认 `scripts/demo.sh` 的 Compose API 未配置 Voice-01 的云 SDK、ffmpeg、检索数据或主机 Ollama；使用上述独立服务步骤才能使用语音功能。
-
-本地离线导航与 GPS 数据采集系统，支持 macOS Web 界面导航和 iPhone 原始定位录制。
-
-## 当前阶段
-
-### Phase 1：离线导航 MVP（珠海实验区域）
-
-基于 OpenStreetMap 路网的离线汽车路线规划与导航可视化，使用 OSRM 路由引擎、MapLibre GL JS 地图渲染和 FastAPI 协调服务。
-
-**核心能力：**
-- 离线道路网络构建（OSRM MLD）
-- 八类语义 GeoJSON 底图（道路、建筑、水系、绿地、用地、道路标签、地点标签、POI）
-- 中文标签渲染（优先 `name:zh`）
-- 模拟轨迹回放与偏航重规划
-- 完全离线运行，无云服务依赖
-
-**当前地图：** 珠海实验区域（华夏路 → 港湾大道 → 软件园路）
-
-**快速启动：**
-```bash
-# 前提：已构建珠海 OSRM 数据和 GeoJSON
-bash scripts/demo.sh
-```
-
-打开 <http://127.0.0.1:5173/> 查看珠海地图，点击"规划路线"和"开始模拟回放"。
-
-### Phase 2：iPhone GPS 数据采集（GPS-01）
-
-独立的 iPhone App 支持两种模式：
-
-**实时发送模式：**
-- 通过局域网 HTTP POST 发送原始定位到 Mac 端 FastAPI
-- WGS-84 坐标，区分定位时间戳和接收时间
-- 设备令牌认证，队列调度和性能指标监控
-
-**离线录制模式：**
-- 无需 Wi-Fi，本地保存 GPS 轨迹到 JSONL 文件
-- 增量持久化，包含 lat、lon、timestamp、accuracy、speed、heading
-- iOS 系统分享导出（AirDrop、Files）
-- Mac 端分析脚本统计采样率、精度、定位年龄等指标
-
-**iOS App 位置：** `ios/GpsSender/`
-
-## 项目结构
-
-```
+```text
 Navigation_system/
-├── backend/              # FastAPI 导航服务和 GPS 接收接口
-├── frontend/             # MapLibre GL JS Web 界面
-├── scripts/              # 数据构建、演示、测试和分析脚本
-├── data/                 # 可再生地图数据（Git 忽略）
-│   ├── raw/              # 原始 OSM 文件
-│   ├── osrm/             # OSRM 路由数据
-│   ├── tracks/           # 模拟轨迹文件
-│   └── metadata/         # 构建元数据
-├── ios/GpsSender/        # iPhone GPS Sender App
-├── docs/                 # 技术文档和测试手册
-├── ARCHITECTURE.md       # 系统架构说明
-├── AGENTS.md             # AI 协作约束
-├── DEVELOPMENT.md        # 开发阶段与验收标准
-└── DATA_POLICY.md        # 数据和坐标规范
+├── backend/              # FastAPI 路由协调、GPS 实时总线与语音意图服务
+├── frontend/             # Vite + TypeScript 双入口前端（index.html 离线 / amap.html 高德增强）
+├── ios/GpsSender/        # iPhone 实时 GPS 发送与离线轨迹录制工程（Xcode）
+├── scripts/              # OSM/OSRM 数据构建、冒烟测试与 GPS 录制分析脚本
+├── data/                 # 本地地图与构建产物目录（大文件与敏感数据均已 Git 忽略）
+├── docs/                 # 架构调研、联调手册、设计规范与实施计划
+├── AGENTS.md             # AI 协作与工程红线约束
+├── ARCHITECTURE.md       # 系统总体架构与实时数据流说明
+├── DEVELOPMENT.md        # 阶段演进路线与验收记录
+└── DATA_POLICY.md        # 坐标系边界转换、隐私与数据管理规范
 ```
 
-## 前置条件
+---
 
-- **macOS** 本地浏览器作为显示端
-- **Docker Desktop** 用于运行 OSRM、FastAPI 和 Nginx
-- **Xcode**（可选）用于构建 iOS App
-- **Python 3.12+** 用于数据构建和分析脚本
-
-## 一键启动本地 MVP
-
-前提：已通过 `scripts/build_osrm.sh` 生成 OSRM 数据，并通过 `scripts/build_tiles.sh` 生成 GeoJSON。
+## 自动化测试与构建验证
 
 ```bash
-bash scripts/demo.sh
-```
+# 后端单元与接口测试（Pytest）
+PYTHONPATH=backend backend/.venv/bin/pytest backend/tests -q
 
-打开 <http://127.0.0.1:5173/> 后已预置与合成轨迹一致的演示起终点；选择正常或偏航轨迹，再点击"规划路线"和"开始模拟回放"即可。也可点击地图改选起终点。回放按钮支持暂停、继续与重新回放。所有服务仅绑定本机回环地址：前端 `5173`、FastAPI `8000`、OSRM `5000`。
+# 前端单元测试（Vitest）与多页面生产构建校验
+npm --prefix frontend test -- --run
+npm --prefix frontend run build
 
-停止服务：
-```bash
-docker compose down
-```
-
-## iPhone GPS 数据采集
-
-### 实时发送模式（需 Wi-Fi）
-
-默认 API 继续只绑定 `127.0.0.1`。仅在可信测试局域网中，将它绑定到 Mac 的**具体局域网 IPv4 地址**，并配置不提交 Git 的设备令牌：
-
-```bash
-export GPS_LAN_BIND_ADDRESS=192.168.1.23
-export GPS_DEVICE_TOKENS_JSON='{"ios-demo-device":"replace-with-a-long-random-token"}'
-docker compose up --build api
-```
-
-iPhone 以 `Authorization: Bearer <token>` 提交。HTTP 明文只适用于可信实验网络；部署前需改用 TLS、令牌轮换、主机防火墙和网络隔离。不要把令牌、真实坐标或接收日志提交到版本库。
-
-### 离线录制模式（无需 Wi-Fi）
-
-1. 在 iPhone 上打开 GpsSender App
-2. 选择顶部 **"离线录制"** 模式
-3. 点击 **"开始录制"**，授予定位权限
-4. 室外步行或驾车，保持 App 前台运行
-5. 点击 **"停止并保存"**
-6. 通过分享图标导出 JSONL 文件（AirDrop 或 Files）
-
-Mac 端分析：
-```bash
-python3 scripts/analyze_gps_recording.py /path/to/exported/file.jsonl
-```
-
-详细测试步骤见 [15 分钟室外测试手册](docs/gps-offline-recording-test.md)。
-
-## 验证与测试
-
-启动后可运行完整闭环验证：
-```bash
+# 离线容器全链路冒烟测试（需 Docker 运行中）
 bash scripts/smoke_test.sh
 ```
-
-语音交互浏览器回归使用合成请求和录音替身，不调用腾讯云。需准备 Chrome 和临时安装的 `playwright-core`，在两个终端分别执行：
-
-```bash
-cd frontend
-npm run dev -- --host 127.0.0.1 --port 16173 --strictPort
-```
-
-```bash
-npm install --prefix /tmp/voice01-browser-test playwright-core
-cd frontend
-PLAYWRIGHT_CORE_HOME=/tmp/voice01-browser-test CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" node tests/voice-flow.browser.mjs
-```
-
-其他系统将 `CHROME_PATH` 替换为本机 Chrome 路径。真实模型的合成需求评测见 [评测说明](backend/tests/evaluation/README.md)。
-
-本地容器关系为：浏览器 → `frontend`（Nginx/MapLibre）→ `api`（FastAPI）→ `osrm`。
-前端通过 Nginx 将 `/api` 反向代理给 FastAPI，不直接调用 OSRM；离线道路 GeoJSON 由
-`frontend` 容器静态提供。三个容器用于隔离职责并让启动可复现，并非业务逻辑必须依赖 Docker。
-
-## 非目标（第一阶段）
-
-以下内容不在当前实现范围内：
-- 基于完整语义理解的 POI 推荐、营业状态或其他未经验证属性筛选
-- 离线语音识别、语音合成与连续语音交互
-- 商铺招牌 OCR、视觉 BBox 和到达确认
-- 真实 GNSS、手机定位或车辆 CAN 数据接入（Phase 2 仅提供采集接口）
-- 实时交通、云端地图和生产级高可用部署
-
-## 后续阶段
-
-1. 将模拟定位适配器替换为手机、USB GNSS 或车辆定位适配器（GPS-02 道路匹配与导航算法测试）
-2. 接入本地 LLM 与用户偏好进行 POI 推荐
-3. 接入腾讯云语音识别与语音合成
-4. 接入 PaddleOCR 进行目的地招牌识别和 BBox 显示

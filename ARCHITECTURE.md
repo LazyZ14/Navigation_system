@@ -1,79 +1,74 @@
-# 第一阶段架构：离线导航路由与可视化
+# 系统架构说明
 
-## 1. 目标
+## 1. 架构概览
 
-在 macOS 的本地 Web 页面中完成以下闭环：指定起点和终点、规划机动车路线、展示高亮路线与转向提示、回放模拟位置、偏航后重新规划。
+本系统采用**“设备无关 `WGS-84` 定位总线 + 离线/在线双前端视图”**的分层架构，兼顾纯离线可复现实验与实车实时导航联调：
 
-## 2. 非目标
+1. **离线导航闭环（`frontend/index.html`）**：基于珠海区域 OpenStreetMap 构建 OSRM 路由图与八类语义 GeoJSON 底图，由 FastAPI 协调路线规划、轨迹回放、偏航重规划及 Voice-01 语音目的地检索，MapLibre GL JS 负责渲染。
+2. **在线高德增强闭环（`frontend/amap.html`）**：接入高德地图 JS API v2.0，顶部拆分为互不干扰的两种模式：
+   - **📡 实车实时导航模式（Live Mode）**：订阅 FastAPI 实时 `WGS-84` 定位流，在边界层转换为 `GCJ-02`，执行静止防抖平滑、高德规划折线连续性+航向角投影吸附、逐步转向提示刷新、到达判定与连续偏航节流自动重算；
+   - **🧪 手动演示模式（Demo Mode）**：支持地图手动点选起终点、珠海预设路线一键填充、单次浏览器定位及小车沿路模拟巡航，方便室内汇报演示。
+3. **实时定位采集源（`ios/GpsSender/` → 后续平滑切换硬件 GNSS）**：当前阶段使用 iPhone 原生 App 通过 **USB 有线个人热点虚拟网卡（`172.20.10.x`）** 或可信局域网以最高 5Hz 向 FastAPI 上报 `WGS-84` 定位；待外置 USB/串口 GNSS 模块到货后，仅需替换后端定位输入源即可零改动复用整套管线。
 
-以下内容不在第一阶段实现范围内：
+---
 
-- 基于本地 LLM 的模糊需求理解或 POI 推荐；
-- 腾讯云语音识别、语音合成与语音交互；
-- 商铺招牌 OCR、视觉 BBox 和到达确认；
-- 真实 GNSS、手机定位或车辆 CAN 数据接入；
-- 实时交通、云端地图和生产级高可用部署。
-
-## 3. 总体结构
+## 2. 总体拓扑图
 
 ```text
-                        map.osm
-                           |
-              +------------+------------+
-              |                         |
-       OSRM 路网构建               离线底图构建
-              |                         |
-       OSRM 本地 HTTP 服务       MBTiles / 矢量瓦片
-              |                         |
-              +------ FastAPI ----------+
-                           |
-                    REST / WebSocket
-                           |
-               MapLibre GL JS 本地页面
-                           |
-       路线、转向提示、车标、箭头、调试面板
+  [iPhone GpsSender (USB 有线 / LAN)]    [未来 USB/串口 GNSS 模块]
+                  \                        /
+                   v  POST /api/gps/fixes (WGS-84 + Bearer Token)
+        +----------------------------------------------------+
+        |                 FastAPI 协调与定位服务               |
+        |  • GpsIngressService: 鉴权、防乱序、时效校验、内存快照 |
+        |  • GET /api/gps/latest & WS /ws/gps/live (WGS-84)  |
+        |  • NavigationSessionStore & Voice-01 意图/POI 适配  |
+        +-------------------+------------------------+-------+
+                            |                        |
+         REST / WS (WGS-84) |                        | HTTP (lon,lat WGS-84)
+                            |                        v
+        +-------------------v--------+      +----------------+
+        |     前端 Web 多页面应用      |      |  OSRM 路由引擎  |
+        |                            |      |  (zhuhai.osrm) |
+        | 1) index.html (MapLibre)   |<-----+----------------+
+        |    离线八类 GeoJSON 底图     |            ^
+        |                            |            | 构建脚本
+        | 2) amap.html (高德双模式)   |       [zhuhai.osm]
+        |    coord-transform.ts      |
+        |    (WGS-84 -> GCJ-02 边界)  |
+        |    amap-route-matcher.ts   |
+        |    amap-live-controller.ts |
+        +----------------------------+
 ```
 
-## 4. 组件职责
+---
 
-| 组件 | 技术选择 | 职责 | 不负责 |
+## 3. 核心组件职责
+
+| 组件 | 关键路径 | 职责 | 明确不负责 |
 | --- | --- | --- | --- |
-| 路网与路线引擎 | OSRM，汽车 profile | 将 OSM 路网预处理为可查询图；输出路线、几何和转向步骤 | 获取 GPS、绘制界面、POI 推荐 |
-| 导航协调服务 | Python 3.11+、FastAPI | 调用 OSRM；维护导航会话；接收定位；检测偏航；推送导航状态 | 重写路由算法、直接渲染地图 |
-| 地图界面 | TypeScript、MapLibre GL JS | 显示离线底图、路线、箭头、车标与导航卡片 | 规划道路路线、保存定位真值 |
-| 定位源 | JSON/GPX 轨迹回放 | 按时间顺序提供位置、速度与航向 | 判定路线、直接操作 UI |
-| 数据构建 | 可复现脚本 | 从 OSM 产生 OSRM 数据与离线地图瓦片 | 运行时实时更新路网 |
+| **OSRM 离线路由引擎** | `docker-compose.yml`、`backend/app/services/osrm.py` | 基于 `zhuhai.osrm` 输出机动车路线几何、总距离、时长与转向步骤 | 采集真实 GPS、渲染界面、处理 `GCJ-02` |
+| **FastAPI 定位总线** | `backend/app/gps/`、`backend/app/api/gps.py` | 验证设备 Token、过滤重复/乱序/过期报文，提供 `GET /api/gps/latest` 快照与有界非阻塞 `WS /ws/gps/live` 广播（纯 `WGS-84`） | 落盘保存真实轨迹、调用高德在线 API、转换火星坐标 |
+| **FastAPI 离线会话与语音层** | `backend/app/services/navigation.py`、`voice.py` | 维护离线导航会话、道路匹配（`route_matching.py`）、回放控制及本地 OSM POI 语音意图检索 | 直接操作浏览器渲染状态 |
+| **离线地图界面** | `frontend/index.html`、`frontend/src/main.ts` | 渲染八类离线 GeoJSON 底图、主/已驶路线、转向卡片与语音候选确认 | 直接访问 OSRM 私有端口 |
+| **高德在线双模式界面** | `frontend/amap.html`、`frontend/src/amap-main.ts` | 隔离 `live`/`demo` 双模式 UI、通过 `DrivingSearchGuard` 防止切模式后异步算路回调串台、驱动模糊意图周边检索 | 向后端回写 `GCJ-02` 坐标 |
+| **高德路线吸附与偏航控制器** | `frontend/src/amap-route-matcher.ts`、`amap-live-controller.ts` | 边界 `WGS-84 → GCJ-02` 转换、`>100m` 噪点拦截、静止 `<3m` 死区平滑、折线投影吸附、10s 在线心跳与连续 3 帧 `>50m` 偏航节流重算 | 依赖 DOM 或全局 `window.AMap` 单例 |
+| **iPhone 定位端** | `ios/GpsSender/` | CoreLocation 5Hz 前台定位实时发送（带退避重试队列）与离线 JSONL 轨迹录制导出 | 坐标加偏、路线规划 |
 
-对于当前约 10 MB 的实验区域，MapLibre 底图使用由同一 OSM 文件构建的八类离线 GeoJSON（五类基础几何：道路、建筑、水系、绿地、用地；三类标签：道路名、地点名、基础 POI），以降低 XML-to-PBF/MBTiles 转换链复杂度；地图范围扩大或需要更丰富的样式、标签与缩放性能时，再替换为 MBTiles 矢量瓦片。该替换不改变前端路由 API。中文标签使用浏览器本地字体渲染，不依赖外部 glyph 服务。
+---
 
-## 5. 数据流
+## 4. 关键实时数据流（GPS-02 高德实车闭环）
 
 ```text
-起点 + 终点
-  -> FastAPI
-  -> OSRM route
-  -> 路线几何、距离、时长、逐步转向
-  -> MapLibre 绘制路线
-
-轨迹点 {lat, lon, heading, speed, accuracy, timestamp}
-  -> FastAPI
-  -> 道路吸附 / 轨迹匹配 + 偏航判断
-  -> WebSocket 导航状态
-  -> MapLibre 更新车标、已行驶路线和下一转向
+iPhone CoreLocation (WGS-84, 最高 5Hz)
+  -> USB 有线网卡 (172.20.10.1 -> 172.20.10.x:8000) POST /api/gps/fixes
+  -> FastAPI GpsIngressService 校验时效与单调序号
+  -> WS /ws/gps/live 实时推送 LiveGpsFix (WGS-84)
+  -> 前端 AmapLiveController:
+       1) (stream_id, sequence) 去重 + 10s 在线心跳计时
+       2) 过滤 accuracy_m > 100m 弱信号噪点
+       3) wgs84ToGcj02 边界转换
+       4) 未算路时：UnroutedJitterFilter 平滑显示并同步实车起点
+       5) 导航中：matchPointToAmapRoute 折线吸附 (<= 50m) 更新车标、剩余里程与下一转向；
+          连续 3 点偏离 > 50m (accuracy <= 50m, 10s 冷却) 自动调用高德 Driving 重算
 ```
-
-路线只在会话开始、用户改变终点或判定偏航时重算。车标显示道路匹配后的坐标，而不是未经处理的原始定位点。
-
-## 6. 前端导航表现
-
-- 离线底图按用地、绿地、水系、建筑、道路的层级渲染；
-- 主路线使用深色描边和亮蓝色路线叠加；
-- 已通过的路线变灰；
-- 箭头图标沿主路线按固定间距重复；
-- 车辆标记按航向旋转，地图相机在导航模式下跟随；
-- 顶部卡片显示下一动作、距离和道路名；
-- 调试面板显示原始/匹配坐标、速度、偏航状态和数据源。
-
-## 7. 未来扩展边界
-
-道路名、建筑名与其他 labels、POI、railway、sprites、MBTiles 和矢量瓦片均为后续增强；POI 推荐模块仅输出候选 POI 及其坐标；语音模块仅输入用户意图和播报导航文本；OCR 模块只在接近终点时验证商铺招牌。它们通过导航协调服务的明确接口接入，不修改 OSRM 或 MapLibre 的核心职责。
